@@ -218,7 +218,7 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
             else:
                 l = maskedNLL(fut_pred, fut, op_mask)
 
-        print(l.item())
+        
         avg_val_loss += l.item()
         val_batch_count += 1
 
