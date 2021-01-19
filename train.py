@@ -44,7 +44,7 @@ if args['use_cuda']:
     net = net.cuda()
 
 ## Initialize optimizer
-pretrainEpochs = 0
+pretrainEpochs = 5
 trainEpochs = 3
 optimizer = torch.optim.Adam(net.parameters())
 batch_size = args['batch_size']
@@ -242,7 +242,7 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
 #
 # if args['ip_dim']==3 and args['Gauss_reduced'] and args['regularize']:
 #     model_fname = 'trained_models/round_baseline_3D_reduced_sampling_Regularized_L2.tar'
-model_fname = 'trained_models/round_3D_Intention_EnEx.tar'
+model_fname = 'trained_models/round_3D_Intention_Anchors.tar'
 torch.save(net.state_dict(), model_fname)
 
 
