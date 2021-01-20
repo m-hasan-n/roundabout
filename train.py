@@ -218,7 +218,7 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
             else:
                 l = maskedNLL(fut_pred, fut, op_mask)
 
-        
+
         avg_val_loss += l.item()
         val_batch_count += 1
 
@@ -242,7 +242,7 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
 #
 # if args['ip_dim']==3 and args['Gauss_reduced'] and args['regularize']:
 #     model_fname = 'trained_models/round_baseline_3D_reduced_sampling_Regularized_L2.tar'
-model_fname = 'trained_models/round_3D_Intention_Anchors.tar'
+model_fname = 'trained_models/round_3D_Intention_Anchors_ref.tar'
 torch.save(net.state_dict(), model_fname)
 
 
