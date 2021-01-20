@@ -47,7 +47,7 @@ net = roundNet(args)
 
 # load the trained model
 # net_fname = 'trained_models/round_baseline.tar'
-net_fname = 'trained_models/round_3D_Intention_Anchors.tar'
+net_fname = 'trained_models/round_3D_Intention_Anchors_ref.tar'
 
 if (args['use_cuda']):
     net.load_state_dict(torch.load(net_fname), strict=False)
