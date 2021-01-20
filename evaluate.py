@@ -38,7 +38,7 @@ if args['use_intention']:
     args['num_lat_classes'] = 8
     args['num_lon_classes'] = 3
 
-args['use_entry_exit_int'] = True
+args['use_entry_exit_int'] = False
 if args['use_entry_exit_int']:
     args['num_en_ex_classes'] = 2
 
@@ -47,7 +47,7 @@ net = roundNet(args)
 
 # load the trained model
 # net_fname = 'trained_models/round_baseline.tar'
-net_fname = 'trained_models/round_3D_Intention_EnEx.tar'
+net_fname = 'trained_models/round_3D_Intention_Anchors.tar'
 
 if (args['use_cuda']):
     net.load_state_dict(torch.load(net_fname), strict=False)
@@ -114,7 +114,7 @@ for i, data in enumerate(tsDataloader):
 
 print(torch.pow(lossVals / counts, 0.5))  # Calculate RMSE
 loss_total = torch.pow(lossVals / counts, 0.5)
-fname = 'outfiles/rmse_from_code_' + str(args['ip_dim']) +'D_intention_EnEx.csv'
+fname = 'outfiles/rmse_from_code_' + str(args['ip_dim']) +'D_intention_anchors.csv'
 rmse_file = open(fname, 'w')
 np.savetxt(rmse_file, loss_total.cpu())
 
