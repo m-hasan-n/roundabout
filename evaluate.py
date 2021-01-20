@@ -47,7 +47,7 @@ net = roundNet(args)
 
 # load the trained model
 # net_fname = 'trained_models/round_baseline.tar'
-net_fname = 'trained_models/round_3D_Intention_Anchors.tar'
+net_fname = 'trained_models/round_3D_Intention_Anchors_ref.tar'
 
 if (args['use_cuda']):
     net.load_state_dict(torch.load(net_fname), strict=False)
@@ -114,7 +114,7 @@ for i, data in enumerate(tsDataloader):
 
 print(torch.pow(lossVals / counts, 0.5))  # Calculate RMSE
 loss_total = torch.pow(lossVals / counts, 0.5)
-fname = 'outfiles/rmse_from_code_' + str(args['ip_dim']) +'D_intention_anchors.csv'
+fname = 'outfiles/rmse_from_code_' + str(args['ip_dim']) +'D_intention_anchors_ref.csv'
 rmse_file = open(fname, 'w')
 np.savetxt(rmse_file, loss_total.cpu())
 
