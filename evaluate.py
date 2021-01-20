@@ -8,13 +8,13 @@ import numpy as np
 
 
 # REPRODUCIBILITY
-# torch.manual_seed(0)
-# np.random.seed(0)
-# torch.backends.cudnn.benchmark = False
-# torch.backends.cudnn.deterministic = True
-# # torch.set_deterministic(True)
-# #for lstm
-# CUDA_LAUNCH_BLOCKING=1
+torch.manual_seed(0)
+np.random.seed(0)
+torch.backends.cudnn.benchmark = False
+torch.backends.cudnn.deterministic = True
+# torch.set_deterministic(True)
+#for lstm
+CUDA_LAUNCH_BLOCKING=1
 
 
 ## Network Arguments
