@@ -19,7 +19,7 @@ import numpy as np
 
 ## Network Arguments
 args = {}
-args['use_cuda'] = False
+args['use_cuda'] = True
 args['ip_dim'] = 3
 args['Gauss_reduced'] = True
 args['encoder_size'] = 32
@@ -114,7 +114,7 @@ for i, data in enumerate(tsDataloader):
 
 print(torch.pow(lossVals / counts, 0.5))  # Calculate RMSE
 loss_total = torch.pow(lossVals / counts, 0.5)
-fname = 'outfiles/rmse_from_code_' + str(args['ip_dim']) +'D_intention_anchors.csv'
+fname = 'outfiles/rmse_from_code_' + str(args['ip_dim']) +'D_intention_anchors_ref.csv'
 rmse_file = open(fname, 'w')
 np.savetxt(rmse_file, loss_total.cpu())
 

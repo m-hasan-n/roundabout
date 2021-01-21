@@ -74,9 +74,9 @@ class roundDataset(Dataset):
         else:
             if self.T.shape[1] <= vehId - 1:
                 return np.empty([0, ip_dim])
-            #refTrack = self.T[dsId - 1][refVehId - 1].transpose()
+            refTrack = self.T[dsId - 1][refVehId - 1].transpose()
             vehTrack = self.T[dsId - 1][vehId - 1].transpose()
-            #refPos = refTrack[np.where(refTrack[:, 0] == t)][0, 1:ip_dim + 1]
+            refPos = refTrack[np.where(refTrack[:, 0] == t)][0, 1:ip_dim + 1]
 
             if vehTrack.size == 0 or np.argwhere(vehTrack[:, 0] == t).size == 0:
                 return np.empty([0, ip_dim])
@@ -92,7 +92,7 @@ class roundDataset(Dataset):
     ## Helper function to get track future
     def getFuture(self, vehId, t, dsId, ip_dim):
         vehTrack = self.T[dsId - 1][vehId - 1].transpose()
-        #refPos = vehTrack[np.where(vehTrack[:, 0] == t)][0, 1:ip_dim + 1]
+        refPos = vehTrack[np.where(vehTrack[:, 0] == t)][0, 1:ip_dim + 1]
         stpt = np.argwhere(vehTrack[:, 0] == t).item() + self.d_s
         enpt = np.minimum(len(vehTrack), np.argwhere(vehTrack[:, 0] == t).item() + self.t_f + 1)
         fut = vehTrack[stpt:enpt:self.d_s, 1:ip_dim + 1] #- refPos
