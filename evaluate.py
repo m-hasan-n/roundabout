@@ -5,7 +5,7 @@ from utils import roundDataset, maskedNLL, maskedMSETest, maskedNLLTest, saveRes
 from torch.utils.data import DataLoader
 import time
 import numpy as np
-
+import scipy.io as scp
 
 # REPRODUCIBILITY
 # torch.manual_seed(0)
@@ -33,6 +33,8 @@ args['batch_size'] = 128
 args['bottleneck_dim'] = 64
 args['batch_norm'] = True
 
+# args['d_s'] = 4
+
 args['use_intention'] = True
 if args['use_intention']:
     args['num_lat_classes'] = 8
@@ -47,7 +49,7 @@ net = roundNet(args)
 
 # load the trained model
 # net_fname = 'trained_models/round_baseline.tar'
-net_fname = 'trained_models/round_3D_Intention_Anchors.tar'
+net_fname = 'trained_models/round_3D_Intention_4s.tar'
 
 if (args['use_cuda']):
     net.load_state_dict(torch.load(net_fname), strict=False)
@@ -55,8 +57,10 @@ else:
     net.load_state_dict(torch.load(net_fname , map_location= lambda storage, loc: storage), strict=False)
 
 ## Initialize data loaders
-tsSet = roundDataset('data/TestSet.mat')
+ds_matfile = 'data/TestSet.mat'
+tsSet = roundDataset(ds_matfile)
 tsDataloader = DataLoader(tsSet,batch_size=128,shuffle=True,num_workers=8,collate_fn=tsSet.collate_fn)
+# anchor_trajs = scp.loadmat(ds_matfile)['anchor_traj_raw']
 
 lossVals = torch.zeros(args['out_length'])
 counts = torch.zeros(args['out_length'])
@@ -67,7 +71,8 @@ if args['use_cuda']:
     counts = counts.cuda()
 
 for i, data in enumerate(tsDataloader):
-    hist, nbrs, nbr_list_len, fut, lat_enc, lon_enc, op_mask, ds_ids, vehicle_ids, frame_ids, goal_enc, en_ex_enc  = data
+    # , en_ex_enc, fut_anch
+    hist, nbrs, nbr_list_len, fut, lat_enc, lon_enc, op_mask, ds_ids, vehicle_ids, frame_ids, goal_enc  = data
 
     if args['use_cuda']:
         hist = hist.cuda()
@@ -81,14 +86,16 @@ for i, data in enumerate(tsDataloader):
         lat_enc = lat_enc.cuda()
         lon_enc = lon_enc.cuda()
         goal_enc = goal_enc.cuda()
-        en_ex_enc = en_ex_enc.cuda()
+        # en_ex_enc = en_ex_enc.cuda()
+        # fut_anch = fut_anch.cuda()
 
     # Forward pass
     if args['use_intention']:
         if args['use_entry_exit_int']:
             fut_pred, lat_pred, lon_pred, en_ex_pred = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc, en_ex_enc)
         else:
-            fut_pred, lat_pred, lon_pred = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc, en_ex_enc)
+            # en_ex_enc
+            fut_pred, lat_pred, lon_pred = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc)
 
         fut_pred_max = torch.zeros_like(fut_pred[0])
         for k in range(lat_pred.shape[0]):
@@ -101,6 +108,10 @@ for i, data in enumerate(tsDataloader):
             else:
                 indx = lon_man * args['num_lat_classes'] + lat_man
 
+            # anch_traj = anchor_trajs[lon_man, lat_man]
+            # anch_traj_sampled = anch_traj[0:-1:args['d_s'],:]
+            # pred = (fut_pred[indx][:, k, :]).detach().numpy()
+            # fut_pred_max[:, k, 0:3] = torch.from_numpy(anch_traj_sampled - pred[:,0:3] )
             fut_pred_max[:, k, :] = fut_pred[indx][:, k, :]
 
         l, c = maskedMSETest(fut_pred_max, fut, op_mask)
@@ -111,10 +122,11 @@ for i, data in enumerate(tsDataloader):
     lossVals += l.detach()
     counts += c.detach()
 
+    print(torch.pow(lossVals / counts, 0.5))
 
 print(torch.pow(lossVals / counts, 0.5))  # Calculate RMSE
 loss_total = torch.pow(lossVals / counts, 0.5)
-fname = 'outfiles/rmse_from_code_' + str(args['ip_dim']) +'D_intention_anchors.csv'
+fname = 'outfiles/rmse_from_code_' + str(args['ip_dim']) +'D_intention_4s.csv'
 rmse_file = open(fname, 'w')
 np.savetxt(rmse_file, loss_total.cpu())
 
