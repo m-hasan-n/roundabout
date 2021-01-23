@@ -93,7 +93,8 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
 
     for i, data in enumerate(trDataloader):
         st_time = time.time()
-        hist, nbrs, nbr_list_len, fut, lat_enc, lon_enc, op_mask, ds_ids, vehicle_ids, frame_ids, goal_enc, en_ex_enc  = data
+        # , en_ex_enc
+        hist, nbrs, nbr_list_len, fut, lat_enc, lon_enc, op_mask, ds_ids, vehicle_ids, frame_ids, goal_enc  = data
 
         if args['use_cuda']:
             hist = hist.cuda()
@@ -107,7 +108,7 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
             lat_enc = lat_enc.cuda()
             lon_enc = lon_enc.cuda()
             goal_enc = goal_enc.cuda()
-            en_ex_enc = en_ex_enc.cuda()
+            # en_ex_enc = en_ex_enc.cuda()
             # fut_anch = fut_anch.cuda()
 
         if args['use_intention']:
@@ -182,7 +183,8 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
 
     for i, data in enumerate(valDataloader):
         st_time = time.time()
-        hist, nbrs, nbr_list_len, fut,lat_enc, lon_enc, op_mask, ds_ids, vehicle_ids, frame_ids, goal_enc, en_ex_enc = data
+        # en_ex_enc
+        hist, nbrs, nbr_list_len, fut,lat_enc, lon_enc, op_mask, ds_ids, vehicle_ids, frame_ids, goal_enc = data
 
         if args['use_cuda']:
             hist = hist.cuda()
@@ -196,7 +198,7 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
             lat_enc = lat_enc.cuda()
             lon_enc = lon_enc.cuda()
             goal_enc = goal_enc.cuda()
-            en_ex_enc = en_ex_enc.cuda()
+            # en_ex_enc = en_ex_enc.cuda()
             # fut_anch = fut_anch.cuda()
 
         # Forward pass

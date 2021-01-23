@@ -18,7 +18,7 @@ class roundDataset(Dataset):
         self.lat_dim = lat_dim
         self.lon_dim = lon_dim
         self.goal_dim = goal_dim
-        self.en_ex_dim = en_ex_dim
+        # self.en_ex_dim = en_ex_dim
         self.use_anchors = using_anchors
         # self.Ta = scp.loadmat(mat_file)['tracks_anchored']
 
@@ -63,11 +63,11 @@ class roundDataset(Dataset):
             goal_enc = np.zeros([self.goal_dim])
             goal_enc[int(goal_class - 1)] = 1
 
-        en_ex_class = self.D[idx, 14]
-        en_ex_enc = np.zeros([self.en_ex_dim])
-        en_ex_enc[int(en_ex_class)] = 1
+        # en_ex_class = self.D[idx, 14]
+        # en_ex_enc = np.zeros([self.en_ex_dim])
+        # en_ex_enc[int(en_ex_class)] = 1
 
-        return hist, fut, neighbors, lat_enc, lon_enc, dsId, vehId, t, goal_enc, en_ex_enc#, fut_anch
+        return hist, fut, neighbors, lat_enc, lon_enc, dsId, vehId, t, goal_enc#, en_ex_enc, fut_anch
 
     ## Helper function to get track history
     def getHistory(self, vehId, t, refVehId, dsId):
@@ -115,7 +115,7 @@ class roundDataset(Dataset):
         # Initialize neighbors and neighbors length batches:
         # nbr_batch_size = 0
         nbr_list_len = torch.zeros(len(samples),1)
-        for sample_id , (_, _, nbrs, _, _, _, _, _,_,_) in enumerate(samples):
+        for sample_id , (_, _, nbrs, _, _, _, _, _,_) in enumerate(samples):
             nbr_list_len[sample_id] = sum([len(nbrs[i]) != 0 for i in range(len(nbrs))])
 
         nbr_batch_size = int((sum(nbr_list_len)).item())
@@ -133,7 +133,7 @@ class roundDataset(Dataset):
         lat_enc_batch = torch.zeros(len(samples), self.lat_dim)
         lon_enc_batch = torch.zeros(len(samples), self.lon_dim)
         goal_enc_batch = torch.zeros(len(samples), self.goal_dim)
-        en_ex_enc_batch = torch.zeros(len(samples), self.en_ex_dim)
+        # en_ex_enc_batch = torch.zeros(len(samples), self.en_ex_dim)
         # fut_anch_batch = torch.zeros(self.t_f // self.d_s, len(samples), self.ip_dim)
 
         count = 0
@@ -152,7 +152,7 @@ class roundDataset(Dataset):
             lat_enc_batch[sampleId, :] = torch.from_numpy(lat_enc)
             lon_enc_batch[sampleId, :] = torch.from_numpy(lon_enc)
             goal_enc_batch[sampleId, :] = torch.from_numpy(goal_enc)
-            en_ex_enc_batch[sampleId, :] = torch.from_numpy(en_ex_enc)
+            # en_ex_enc_batch[sampleId, :] = torch.from_numpy(en_ex_enc)
 
             # Set up neighbor, neighbor sequence length, and mask batches:
             for id, nbr in enumerate(nbrs):
@@ -161,7 +161,7 @@ class roundDataset(Dataset):
                         nbrs_batch[0:len(nbr), count, k] = torch.from_numpy(nbr[:, k])
                     count += 1
 
-        return hist_batch, nbrs_batch, nbr_list_len , fut_batch, lat_enc_batch, lon_enc_batch, op_mask_batch, ds_ids_batch, vehicle_ids_batch, frame_ids_batch, goal_enc_batch, en_ex_enc_batch#, fut_anch_batch
+        return hist_batch, nbrs_batch, nbr_list_len , fut_batch, lat_enc_batch, lon_enc_batch, op_mask_batch, ds_ids_batch, vehicle_ids_batch, frame_ids_batch, goal_enc_batch#, en_ex_enc_batch, fut_anch_batch
 
     # ________________________________________________________________________________________________________________________________________
 
