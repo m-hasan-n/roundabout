@@ -122,7 +122,7 @@ for i, data in enumerate(tsDataloader):
     lossVals += l.detach()
     counts += c.detach()
 
-    print(torch.pow(lossVals / counts, 0.5))
+    # print(torch.pow(lossVals / counts, 0.5))
 
 print(torch.pow(lossVals / counts, 0.5))  # Calculate RMSE
 loss_total = torch.pow(lossVals / counts, 0.5)
