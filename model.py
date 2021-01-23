@@ -101,7 +101,7 @@ class roundNet(nn.Module):
 
 
     ## Forward Pass
-    def forward(self, hist, nbrs, nbr_list_len, lat_enc, lon_enc, en_ex_enc):
+    def forward(self, hist, nbrs, nbr_list_len, lat_enc, lon_enc, en_ex_enc=None):
         ## Forward pass hist:
         _, (hist_enc, _) = self.enc_lstm(self.leaky_relu(self.ip_emb(hist)))
         hist_enc = self.leaky_relu(self.dyn_emb(hist_enc.view(hist_enc.shape[1], hist_enc.shape[2])))
