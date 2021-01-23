@@ -7,7 +7,7 @@ import torch
 ### Dataset class for the rounD dataset
 class roundDataset(Dataset):
 
-    def __init__(self, mat_file, t_h=50, t_f=100, d_s=4, enc_size=32, ip_dim=3, lat_dim=8, lon_dim=3, goal_dim = 16, en_ex_dim =2, using_anchors=True):
+    def __init__(self, mat_file, t_h=50, t_f=100, d_s=4, enc_size=32, ip_dim=3, lat_dim=8, lon_dim=3, goal_dim = 16, en_ex_dim =2, using_anchors=False):
         self.D = scp.loadmat(mat_file)['traj']
 
         self.t_h = t_h  # length of track history
@@ -20,10 +20,10 @@ class roundDataset(Dataset):
         self.goal_dim = goal_dim
         self.en_ex_dim = en_ex_dim
         self.use_anchors = using_anchors
-        if self.use_anchors:
-            self.T = scp.loadmat(mat_file)['tracks_anchored']
-        else:
-            self.T = scp.loadmat(mat_file)['tracks']
+        self.Ta = scp.loadmat(mat_file)['tracks_anchored']
+        self.T = scp.loadmat(mat_file)['tracks']
+        # if self.use_anchors:
+        #     self.A  = scp.loadmat(mat_file)['anchor_traj_raw']
 
 
     def __len__(self):
@@ -39,12 +39,13 @@ class roundDataset(Dataset):
         neighbors = []
 
         # Get track history 'hist' = ndarray, and future track 'fut' = ndarray
-        hist = self.getHistory(vehId, t, vehId, dsId, self.ip_dim)
-        fut = self.getFuture(vehId, t, dsId, self.ip_dim)
+        hist = self.getHistory(vehId, t, vehId, dsId)
+        fut = self.getFuture(vehId, t, dsId, get_anch=False)
+        fut_anch = self.getFuture(vehId, t, dsId, get_anch=True)
 
         # Get track histories of all neighbours 'neighbors' = [ndarray,[],ndarray,ndarray]
         for i in grid:
-            neighbors.append(self.getHistory(i.astype(int), t, vehId, dsId, self.ip_dim))
+            neighbors.append(self.getHistory(i.astype(int), t, vehId, dsId))
 
         #Encoding of Lateral and Longitudinal Intention Classes
         lat_enc = np.zeros([self.lat_dim])
@@ -65,37 +66,46 @@ class roundDataset(Dataset):
         en_ex_enc = np.zeros([self.en_ex_dim])
         en_ex_enc[int(en_ex_class)] = 1
 
-        return hist, fut, neighbors, lat_enc, lon_enc, dsId, vehId, t, goal_enc, en_ex_enc
+        return hist, fut, neighbors, lat_enc, lon_enc, dsId, vehId, t, goal_enc, en_ex_enc, fut_anch
 
     ## Helper function to get track history
-    def getHistory(self, vehId, t, refVehId, dsId, ip_dim):
+    def getHistory(self, vehId, t, refVehId, dsId):
         if vehId == 0:
-            return np.empty([0, ip_dim])
+            return np.empty([0, self.ip_dim])
         else:
-            if self.T.shape[1] <= vehId - 1:
-                return np.empty([0, ip_dim])
-            refTrack = self.T[dsId - 1][refVehId - 1].transpose()
-            vehTrack = self.T[dsId - 1][vehId - 1].transpose()
-            refPos = refTrack[np.where(refTrack[:, 0] == t)][0, 1:ip_dim + 1]
+            if self.use_anchors:
+                veh_tracks = self.Ta
+            else:
+                veh_tracks = self.T
+
+            if veh_tracks.shape[1] <= vehId - 1:
+                return np.empty([0, self.ip_dim])
+            refTrack = veh_tracks[dsId - 1][refVehId - 1].transpose()
+            vehTrack = veh_tracks[dsId - 1][vehId - 1].transpose()
+            refPos = refTrack[np.where(refTrack[:, 0] == t)][0, 1:self.ip_dim + 1]
 
             if vehTrack.size == 0 or np.argwhere(vehTrack[:, 0] == t).size == 0:
-                return np.empty([0, ip_dim])
+                return np.empty([0, self.ip_dim])
             else:
                 stpt = np.maximum(0, np.argwhere(vehTrack[:, 0] == t).item() - self.t_h)
                 enpt = np.argwhere(vehTrack[:, 0] == t).item() + 1
-                hist = vehTrack[stpt:enpt:self.d_s, 1:ip_dim + 1] - refPos
+                hist = vehTrack[stpt:enpt:self.d_s, 1:self.ip_dim + 1] - refPos
 
             if len(hist) < self.t_h // self.d_s + 1:
-                return np.empty([0, ip_dim])
+                return np.empty([0, self.ip_dim])
             return hist
 
     ## Helper function to get track future
-    def getFuture(self, vehId, t, dsId, ip_dim):
-        vehTrack = self.T[dsId - 1][vehId - 1].transpose()
-        refPos = vehTrack[np.where(vehTrack[:, 0] == t)][0, 1:ip_dim + 1]
+    def getFuture(self, vehId, t, dsId, get_anch):
+        if get_anch:
+            vehTrack = self.Ta[dsId - 1][vehId - 1].transpose()
+        else:
+            vehTrack = self.T[dsId - 1][vehId - 1].transpose()
+
+        refPos = vehTrack[np.where(vehTrack[:, 0] == t)][0, 1:self.ip_dim + 1]
         stpt = np.argwhere(vehTrack[:, 0] == t).item() + self.d_s
         enpt = np.minimum(len(vehTrack), np.argwhere(vehTrack[:, 0] == t).item() + self.t_f + 1)
-        fut = vehTrack[stpt:enpt:self.d_s, 1:ip_dim + 1] - refPos
+        fut = vehTrack[stpt:enpt:self.d_s, 1:self.ip_dim + 1] - refPos
         return fut
 
     ## Collate function for dataloader
@@ -104,7 +114,7 @@ class roundDataset(Dataset):
         # Initialize neighbors and neighbors length batches:
         # nbr_batch_size = 0
         nbr_list_len = torch.zeros(len(samples),1)
-        for sample_id , (_, _, nbrs, _, _, _, _, _,_,_) in enumerate(samples):
+        for sample_id , (_, _, nbrs, _, _, _, _, _,_,_,_) in enumerate(samples):
             nbr_list_len[sample_id] = sum([len(nbrs[i]) != 0 for i in range(len(nbrs))])
 
         nbr_batch_size = int((sum(nbr_list_len)).item())
@@ -123,14 +133,16 @@ class roundDataset(Dataset):
         lon_enc_batch = torch.zeros(len(samples), self.lon_dim)
         goal_enc_batch = torch.zeros(len(samples), self.goal_dim)
         en_ex_enc_batch = torch.zeros(len(samples), self.en_ex_dim)
+        fut_anch_batch = torch.zeros(self.t_f // self.d_s, len(samples), self.ip_dim)
 
         count = 0
-        for sampleId, (hist, fut, nbrs,lat_enc, lon_enc, ds_ids, vehicle_ids, frame_ids, goal_enc, en_ex_enc) in enumerate(samples):
+        for sampleId, (hist, fut, nbrs,lat_enc, lon_enc, ds_ids, vehicle_ids, frame_ids, goal_enc, en_ex_enc, fut_anch) in enumerate(samples):
 
             # Set up history, future, lateral maneuver and longitudinal maneuver batches:
             for k in range(self.ip_dim):
                 hist_batch[0:len(hist), sampleId, k] = torch.from_numpy(hist[:, k])
                 fut_batch[0:len(fut), sampleId, k] = torch.from_numpy(fut[:, k])
+                fut_anch_batch[0:len(fut), sampleId, k] = torch.from_numpy(fut_anch[:, k])
 
             op_mask_batch[0:len(fut), sampleId, :] = 1
             ds_ids_batch[sampleId, :] = torch.tensor(ds_ids.astype(np.float64))
@@ -148,7 +160,7 @@ class roundDataset(Dataset):
                         nbrs_batch[0:len(nbr), count, k] = torch.from_numpy(nbr[:, k])
                     count += 1
 
-        return hist_batch, nbrs_batch, nbr_list_len , fut_batch, lat_enc_batch, lon_enc_batch, op_mask_batch, ds_ids_batch, vehicle_ids_batch, frame_ids_batch, goal_enc_batch, en_ex_enc_batch
+        return hist_batch, nbrs_batch, nbr_list_len , fut_batch, lat_enc_batch, lon_enc_batch, op_mask_batch, ds_ids_batch, vehicle_ids_batch, frame_ids_batch, goal_enc_batch, en_ex_enc_batch, fut_anch_batch
 
     # ________________________________________________________________________________________________________________________________________
 

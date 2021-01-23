@@ -5,13 +5,23 @@ from utils import roundDataset, maskedNLL,maskedMSE,maskedNLLTest,maskedNLLTest_
 from torch.utils.data import DataLoader
 import time
 import math
+import numpy as np
+
+# REPRODUCIBILITY
+# torch.manual_seed(0)
+# np.random.seed(0)
+# torch.backends.cudnn.benchmark = False
+# torch.backends.cudnn.deterministic = True
+# # torch.set_deterministic(True)
+# #for lstm
+# CUDA_LAUNCH_BLOCKING=1
+
 
 ## Network Arguments
 args = {}
 args['use_cuda'] = True
 args['ip_dim'] = 3
 args['Gauss_reduced'] = True
-args['nll_loss'] = True
 args['encoder_size'] = 32
 args['decoder_size'] = 64
 args['in_length'] = 13
@@ -28,7 +38,7 @@ if args['use_intention']:
     args['num_lat_classes'] = 8
     args['num_lon_classes'] = 3
 
-args['use_anchors'] = True
+args['use_anchors'] = False
 
 args['use_entry_exit_int'] = False
 if args['use_entry_exit_int']:
@@ -67,7 +77,7 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
 
     if epoch_num == 0:
         print('Pre-training with MSE loss')
-    elif epoch_num == pretrainEpochs and args['nll_loss']:
+    elif epoch_num == pretrainEpochs:
         print('Training with NLL loss')
 
 
@@ -83,7 +93,7 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
 
     for i, data in enumerate(trDataloader):
         st_time = time.time()
-        hist, nbrs, nbr_list_len, fut, lat_enc, lon_enc, op_mask, ds_ids, vehicle_ids, frame_ids, goal_enc, en_ex_enc  = data
+        hist, nbrs, nbr_list_len, fut, lat_enc, lon_enc, op_mask, ds_ids, vehicle_ids, frame_ids, goal_enc, en_ex_enc, fut_anch  = data
 
         if args['use_cuda']:
             hist = hist.cuda()
@@ -98,6 +108,7 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
             lon_enc = lon_enc.cuda()
             goal_enc = goal_enc.cuda()
             en_ex_enc = en_ex_enc.cuda()
+            fut_anch = fut_anch.cuda()
 
         if args['use_intention']:
 
@@ -125,7 +136,7 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
             fut_pred = net(hist, nbrs, nbr_list_len)
 
             # Pre-train with MSE loss to speed up training
-            if epoch_num < pretrainEpochs or (not(args['nll_loss'])):
+            if epoch_num < pretrainEpochs:
                 l = maskedMSE(fut_pred, fut, op_mask) #args['regularize']
             else:
                 l = maskedNLL(fut_pred, fut, op_mask)
@@ -171,7 +182,7 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
 
     for i, data in enumerate(valDataloader):
         st_time = time.time()
-        hist, nbrs, nbr_list_len, fut,lat_enc, lon_enc, op_mask, ds_ids, vehicle_ids, frame_ids, goal_enc, en_ex_enc = data
+        hist, nbrs, nbr_list_len, fut,lat_enc, lon_enc, op_mask, ds_ids, vehicle_ids, frame_ids, goal_enc, en_ex_enc, fut_anch = data
 
         if args['use_cuda']:
             hist = hist.cuda()
@@ -186,6 +197,7 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
             lon_enc = lon_enc.cuda()
             goal_enc = goal_enc.cuda()
             en_ex_enc = en_ex_enc.cuda()
+            fut_anch = fut_anch.cuda()
 
         # Forward pass
         if args['use_intention']:
@@ -213,7 +225,7 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
                 #                    en_ex_enc.size()[0]
         else:
             fut_pred = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc)
-            if epoch_num < pretrainEpochs or (not(args['nll_loss'])):
+            if epoch_num < pretrainEpochs:
                 l = maskedMSE(fut_pred, fut, op_mask)
             else:
                 l = maskedNLL(fut_pred, fut, op_mask)
@@ -236,13 +248,10 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
 
 #__________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________
 # model_fname = 'trained_models/round_baseline_' + str(args['ip_dim']) +'D_sampling_3.tar'
-#
-# if not(args['nll_loss']):
-#     model_fname = 'trained_models/round_baseline_' + str(args['ip_dim']) +'D_MSEonly_Sampling.tar'
-#
+
 # if args['ip_dim']==3 and args['Gauss_reduced'] and args['regularize']:
 #     model_fname = 'trained_models/round_baseline_3D_reduced_sampling_Regularized_L2.tar'
-model_fname = 'trained_models/round_3D_Intention_Anchors_ref.tar'
+model_fname = 'trained_models/round_3D_Intention_4s.tar'
 torch.save(net.state_dict(), model_fname)
 
 
