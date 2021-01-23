@@ -1,7 +1,7 @@
 from __future__ import print_function
 import torch
 from model import roundNet
-from utils import roundDataset, maskedNLL,maskedMSE,maskedNLLTest,maskedNLLTest_Int,maskedNLLTest_Int_ext
+from utils import roundDataset, maskedNLL,maskedMSE,maskedNLLTest,maskedNLLTest_Int,maskedNLLTest_Int_ext, maskedNLLTest_LatInt
 from torch.utils.data import DataLoader
 import time
 import math
@@ -37,6 +37,8 @@ args['use_intention'] = True
 if args['use_intention']:
     args['num_lat_classes'] = 8
     args['num_lon_classes'] = 3
+
+args['lat_only'] = True
 
 args['use_anchors'] = False
 
@@ -125,11 +127,17 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
 
                 # Train with NLL loss
                 # + crossEnt(en_ex_pred, en_ex_enc)
-                l = maskedNLL(fut_pred, fut, op_mask) + crossEnt(lat_pred, lat_enc) + crossEnt(lon_pred, lon_enc)
+                if args['lat_only']:
+                    l = maskedNLL(fut_pred, fut, op_mask) + crossEnt(lat_pred, lat_enc)
+                else:
+                    l = maskedNLL(fut_pred, fut, op_mask) + crossEnt(lat_pred, lat_enc) + crossEnt(lon_pred, lon_enc)
+
+
                 avg_lat_acc += (torch.sum(torch.max(lat_pred.data, 1)[1] == torch.max(lat_enc.data, 1)[1])).item() / \
                                lat_enc.size()[0]
-                avg_lon_acc += (torch.sum(torch.max(lon_pred.data, 1)[1] == torch.max(lon_enc.data, 1)[1])).item() / \
-                               lon_enc.size()[0]
+                if not args['lat_only']:
+                    avg_lon_acc += (torch.sum(torch.max(lon_pred.data, 1)[1] == torch.max(lon_enc.data, 1)[1])).item() / \
+                                   lon_enc.size()[0]
                 # avg_en_ex_acc += (torch.sum(torch.max(en_ex_pred.data, 1)[1] == torch.max(en_ex_enc.data, 1)[1])).item() / \
                 #                en_ex_enc.size()[0]
 
@@ -215,15 +223,23 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
                 # , en_ex_pred en_ex_enc
                 fut_pred, lat_pred, lon_pred = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc)
 
-                l = maskedNLLTest_Int(fut_pred, lat_pred, lon_pred, fut, op_mask, args['num_lat_classes'], args['num_lon_classes'], args['use_intention'], avg_along_time=True)
+                # l = maskedNLLTest_Int(fut_pred, lat_pred, lon_pred, fut, op_mask, args['num_lat_classes'], args['num_lon_classes'], args['use_intention'], avg_along_time=True)
 
-                # l = maskedNLLTest_Int_ext(fut_pred, lat_pred, lon_pred, en_ex_pred, fut, op_mask, args['num_lat_classes'],
-                #                       args['num_lon_classes'], args['num_en_ex_classes'], args['use_intention'], avg_along_time=True)
+                if args['lat_only']:
+                    l = maskedNLLTest_LatInt(fut_pred, lat_pred, lon_pred, fut, op_mask, args['num_lat_classes'],
+                                          args['num_lon_classes'], args['use_intention'], avg_along_time=True)
+                else:
+                    l = maskedNLLTest_Int(fut_pred, lat_pred, lon_pred, fut, op_mask, args['num_lat_classes'],
+                                             args['num_lon_classes'], args['use_intention'], avg_along_time=True)
+                    # l = maskedNLLTest_Int_ext(fut_pred, lat_pred, lon_pred, en_ex_pred, fut, op_mask, args['num_lat_classes'],
+                    #                       args['num_lon_classes'], args['num_en_ex_classes'], args['use_intention'], avg_along_time=True)
 
                 avg_val_lat_acc += (torch.sum(torch.max(lat_pred.data, 1)[1] == torch.max(lat_enc.data, 1)[1])).item() / \
                                    lat_enc.size()[0]
-                avg_val_lon_acc += (torch.sum(torch.max(lon_pred.data, 1)[1] == torch.max(lon_enc.data, 1)[1])).item() / \
-                                   lon_enc.size()[0]
+
+                if not args['lat_only']:
+                    avg_val_lon_acc += (torch.sum(torch.max(lon_pred.data, 1)[1] == torch.max(lon_enc.data, 1)[1])).item() / \
+                                       lon_enc.size()[0]
                 # avg_val_en_ex_acc += (torch.sum(torch.max(en_ex_pred.data, 1)[1] == torch.max(en_ex_enc.data, 1)[1])).item() / \
                 #                    en_ex_enc.size()[0]
         else:
@@ -254,7 +270,7 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
 
 # if args['ip_dim']==3 and args['Gauss_reduced'] and args['regularize']:
 #     model_fname = 'trained_models/round_baseline_3D_reduced_sampling_Regularized_L2.tar'
-model_fname = 'trained_models/round_3D_Intention_4s.tar'
+model_fname = 'trained_models/round_3D_Intention_4s_latOnly.tar'
 torch.save(net.state_dict(), model_fname)
 
 

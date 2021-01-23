@@ -78,11 +78,16 @@ class roundNet(nn.Module):
         if self.use_intention:
             self.num_lat_classes = args['num_lat_classes']
             self.num_lon_classes = args['num_lon_classes']
-
+            self.lat_only = args['lat_only']
 
             self.op_lat = torch.nn.Linear(self.soc_embedding_size + self.dyn_embedding_size, self.num_lat_classes)
             self.op_lon = torch.nn.Linear(self.soc_embedding_size + self.dyn_embedding_size, self.num_lon_classes)
-            self.dec_ip_size = self.soc_embedding_size + self.dyn_embedding_size + self.num_lat_classes + self.num_lon_classes
+
+            if self.lat_only:
+                self.dec_ip_size = self.soc_embedding_size + self.dyn_embedding_size + self.num_lat_classes
+            else:
+                self.dec_ip_size = self.soc_embedding_size + self.dyn_embedding_size + self.num_lat_classes + self.num_lon_classes
+
             if self.use_en_ex:
                 self.num_en_ex_classes = args['num_en_ex_classes']
                 self.dec_ip_size = self.dec_ip_size + self.num_en_ex_classes
@@ -156,30 +161,38 @@ class roundNet(nn.Module):
                     fut_pred = self.decode(enc)
                     return fut_pred, lat_pred, lon_pred, en_ex_pred
                 else:
-                    enc = torch.cat((enc, lat_enc, lon_enc), 1)
+                    if self.lat_only:
+                        enc = torch.cat((enc, lat_enc), 1)
+                    else:
+                        enc = torch.cat((enc, lat_enc, lon_enc), 1)
+
                     fut_pred = self.decode(enc)
                     return fut_pred, lat_pred, lon_pred
 
             else:
                 fut_pred = []
                 ## Predict trajectory distributions for each maneuver class
-                for k in range(self.num_lon_classes):
-                    for l in range(self.num_lat_classes):
-                        # for m in range(self.num_en_ex_classes):
-                            lat_enc_tmp = torch.zeros_like(lat_enc)
-                            lon_enc_tmp = torch.zeros_like(lon_enc)
-                            lat_enc_tmp[:, l] = 1
-                            lon_enc_tmp[:, k] = 1
+                # for k in range(self.num_lon_classes):
+                for l in range(self.num_lat_classes):
+                    # for m in range(self.num_en_ex_classes):
+                        lat_enc_tmp = torch.zeros_like(lat_enc)
+                        # lon_enc_tmp = torch.zeros_like(lon_enc)
+                        lat_enc_tmp[:, l] = 1
+                        # lon_enc_tmp[:, k] = 1
 
-                            if self.use_en_ex:
-                                en_ex_enc_tmp = torch.zeros_like(en_ex_enc)
-                                en_ex_enc_tmp[:, m] =1
-                                enc_tmp = torch.cat((enc, lat_enc_tmp, lon_enc_tmp, en_ex_enc_tmp), 1)
-                                fut_pred.append(self.decode(enc_tmp))
+                        if self.use_en_ex:
+                            en_ex_enc_tmp = torch.zeros_like(en_ex_enc)
+                            en_ex_enc_tmp[:, m] =1
+                            enc_tmp = torch.cat((enc, lat_enc_tmp, lon_enc_tmp, en_ex_enc_tmp), 1)
+                            fut_pred.append(self.decode(enc_tmp))
 
+                        else:
+                            if self.lat_only:
+                                enc_tmp = torch.cat((enc, lat_enc_tmp),1)
                             else:
-                                enc_tmp = torch.cat((enc, lat_enc_tmp, lon_enc_tmp),1)
-                                fut_pred.append(self.decode(enc_tmp))
+                                enc_tmp = torch.cat((enc, lat_enc_tmp, lon_enc_tmp), 1)
+                            fut_pred.append(self.decode(enc_tmp))
+
                 if self.use_en_ex:
                     return fut_pred, lat_pred, lon_pred, en_ex_pred
                 else:

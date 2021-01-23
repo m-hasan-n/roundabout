@@ -400,6 +400,65 @@ def maskedNLLTest_Int(fut_pred, lat_pred, lon_pred, fut, op_mask, num_lat_classe
 
 
 ## NLL for sequence, outputs sequence of NLL values for each time-step, uses mask for variable output lengths, used for evaluation
+def maskedNLLTest_LatInt(fut_pred, lat_pred, lon_pred, fut, op_mask, num_lat_classes, num_lon_classes,use_maneuvers = True, avg_along_time = False):
+    if use_maneuvers:
+        acc = torch.zeros(op_mask.shape[0],op_mask.shape[1],num_lon_classes*num_lat_classes).cuda()
+        # acc = torch.zeros(op_mask.shape[0], op_mask.shape[1], num_lon_classes * num_lat_classes)
+
+        count = 0
+
+        for l in range(num_lat_classes):
+            wts = lat_pred[:,l]
+            wts = wts.repeat(len(fut_pred[0]),1)
+            y_pred = fut_pred[l]
+            y_gt = fut
+
+            # FInd the NLL
+            out = compute_nll_mat_red(y_pred, y_gt)
+
+            # If we represent likelihood in m^(-1):
+            # out = -(0.5 * torch.pow(ohr, 2) * (torch.pow(sigX, 2) * torch.pow(x - muX, 2) + torch.pow(sigY, 2) * torch.pow(y - muY, 2) - 2 * rho * torch.pow(sigX, 1) * torch.pow(sigY, 1) * (x - muX) * (y - muY)) - torch.log(sigX * sigY * ohr) + 1.8379 - 0.5160)
+            acc[:, :, count] =  out + torch.log(wts.cpu())
+            count+=1
+        acc = -logsumexp(acc, dim = 2)
+        acc = acc * op_mask[:,:,0]
+        if avg_along_time:
+            lossVal = torch.sum(acc) / torch.sum(op_mask[:, :, 0])
+            return lossVal
+        else:
+            lossVal = torch.sum(acc,dim=1)
+            counts = torch.sum(op_mask[:,:,0],dim=1)
+            return lossVal,counts
+    else:
+        acc = torch.zeros(op_mask.shape[0], op_mask.shape[1], 1).cuda()
+        y_pred = fut_pred
+        y_gt = fut
+        muX = y_pred[:, :, 0]
+        muY = y_pred[:, :, 1]
+        sigX = y_pred[:, :, 2]
+        sigY = y_pred[:, :, 3]
+        rho = y_pred[:, :, 4]
+        ohr = torch.pow(1 - torch.pow(rho, 2), -0.5)
+        x = y_gt[:, :, 0]
+        y = y_gt[:, :, 1]
+        # If we represent likelihood in feet^(-1):
+        out = 0.5*torch.pow(ohr, 2)*(torch.pow(sigX, 2)*torch.pow(x-muX, 2) + torch.pow(sigY, 2)*torch.pow(y-muY, 2) - 2 * rho*torch.pow(sigX, 1)*torch.pow(sigY, 1)*(x-muX)*(y-muY)) - torch.log(sigX*sigY*ohr) + 1.8379
+        # If we represent likelihood in m^(-1):
+        # out = 0.5 * torch.pow(ohr, 2) * (torch.pow(sigX, 2) * torch.pow(x - muX, 2) + torch.pow(sigY, 2) * torch.pow(y - muY, 2) - 2 * rho * torch.pow(sigX, 1) * torch.pow(sigY, 1) * (x - muX) * (y - muY)) - torch.log(sigX * sigY * ohr) + 1.8379 - 0.5160
+        acc[:, :, 0] = out
+        acc = acc * op_mask[:, :, 0:1]
+        if avg_along_time:
+            lossVal = torch.sum(acc[:, :, 0]) / torch.sum(op_mask[:, :, 0])
+            return lossVal
+        else:
+            lossVal = torch.sum(acc[:,:,0], dim=1)
+            counts = torch.sum(op_mask[:, :, 0], dim=1)
+            return lossVal,counts
+
+
+
+
+## NLL for sequence, outputs sequence of NLL values for each time-step, uses mask for variable output lengths, used for evaluation
 def maskedNLLTest(fut_pred, fut, op_mask, avg_along_time = False):
     y_pred = fut_pred
     y_gt = fut
