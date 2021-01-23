@@ -137,7 +137,8 @@ class roundDataset(Dataset):
         # fut_anch_batch = torch.zeros(self.t_f // self.d_s, len(samples), self.ip_dim)
 
         count = 0
-        for sampleId, (hist, fut, nbrs,lat_enc, lon_enc, ds_ids, vehicle_ids, frame_ids, goal_enc, en_ex_enc, fut_anch) in enumerate(samples):
+        # , en_ex_enc, fut_anch
+        for sampleId, (hist, fut, nbrs,lat_enc, lon_enc, ds_ids, vehicle_ids, frame_ids, goal_enc) in enumerate(samples):
 
             # Set up history, future, lateral maneuver and longitudinal maneuver batches:
             for k in range(self.ip_dim):
