@@ -115,12 +115,13 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
 
             # Pre-train with MSE loss to speed up training
             if epoch_num < pretrainEpochs:
-                # ,_
-                fut_pred, _, _ = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc, en_ex_enc)
+                # ,_ en_ex_enc
+                fut_pred, _, _ = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc)
                 l = maskedMSE(fut_pred, fut, op_mask)
             else:
+                # en_ex_enc
                 #en_ex_pred
-                fut_pred, lat_pred, lon_pred = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc, en_ex_enc)
+                fut_pred, lat_pred, lon_pred = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc)
 
                 # Train with NLL loss
                 # + crossEnt(en_ex_pred, en_ex_enc)
@@ -206,13 +207,13 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
             if epoch_num < pretrainEpochs:
                 # During pre-training with MSE loss, validate with MSE for true maneuver class trajectory
                 net.train_flag = True
-                # , _
-                fut_pred, _, _ = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc, en_ex_enc)
+                # , _ en_ex_enc
+                fut_pred, _, _ = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc)
                 l = maskedMSE(fut_pred, fut, op_mask)
             else:
                 # During training with NLL loss, validate with NLL over multi-modal distribution
-                # , en_ex_pred
-                fut_pred, lat_pred, lon_pred = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc, en_ex_enc)
+                # , en_ex_pred en_ex_enc
+                fut_pred, lat_pred, lon_pred = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc)
 
                 l = maskedNLLTest_Int(fut_pred, lat_pred, lon_pred, fut, op_mask, args['num_lat_classes'], args['num_lon_classes'], args['use_intention'], avg_along_time=True)
 
