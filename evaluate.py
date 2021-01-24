@@ -40,6 +40,8 @@ if args['use_intention']:
     args['num_lat_classes'] = 8
     args['num_lon_classes'] = 3
 
+args['lat_only'] = True
+
 args['use_entry_exit_int'] = False
 if args['use_entry_exit_int']:
     args['num_en_ex_classes'] = 2
@@ -49,7 +51,7 @@ net = roundNet(args)
 
 # load the trained model
 # net_fname = 'trained_models/round_baseline.tar'
-net_fname = 'trained_models/round_3D_Intention_4s.tar'
+net_fname = 'trained_models/round_3D_Intention_4s_latOnly.tar'
 
 if (args['use_cuda']):
     net.load_state_dict(torch.load(net_fname), strict=False)
@@ -100,13 +102,17 @@ for i, data in enumerate(tsDataloader):
         fut_pred_max = torch.zeros_like(fut_pred[0])
         for k in range(lat_pred.shape[0]):
             lat_man = torch.argmax(lat_pred[k, :]).detach()
-            lon_man = torch.argmax(lon_pred[k, :]).detach()
+            if not args['lat_only']:
+                lon_man = torch.argmax(lon_pred[k, :]).detach()
 
             if args['use_entry_exit_int']:
                 en_ex = torch.argmax(en_ex_pred[k, :]).detach()
                 indx = lon_man * args['num_lat_classes'] * args['num_en_ex_classes'] + lat_man * args['num_en_ex_classes'] + en_ex
             else:
-                indx = lon_man * args['num_lat_classes'] + lat_man
+                if args['lat_only']:
+                    indx = lat_man
+                else:
+                    indx = lon_man * args['num_lat_classes'] + lat_man
 
             # anch_traj = anchor_trajs[lon_man, lat_man]
             # anch_traj_sampled = anch_traj[0:-1:args['d_s'],:]
@@ -126,7 +132,7 @@ for i, data in enumerate(tsDataloader):
 
 print(torch.pow(lossVals / counts, 0.5))  # Calculate RMSE
 loss_total = torch.pow(lossVals / counts, 0.5)
-fname = 'outfiles/rmse_from_code_' + str(args['ip_dim']) +'D_intention_4s.csv'
+fname = 'outfiles/rmse_from_code_' + str(args['ip_dim']) +'D_intention_4s_latOnly.csv'
 rmse_file = open(fname, 'w')
 np.savetxt(rmse_file, loss_total.cpu())
 
