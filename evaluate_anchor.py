@@ -70,7 +70,7 @@ for i, data in enumerate(tsDataloader):
     fut_pred_max = torch.zeros_like(fut_pred[0])
     for k in range(lat_pred.shape[0]):
         lat_man = torch.argmax(lat_pred[k, :]).detach()
-        pred = (fut_pred[lat_man][:, k, :]).detach().numpy()
+        pred = (fut_pred[lat_man][:, k, :]).cpu().detach().numpy()
         fut_pred_max[:, k, :] = anchor_inverse(pred, lat_pred, anchor_traj, args['d_s'], multi=False)
 
     l, c = maskedMSETest(fut_pred_max, fut, op_mask)
