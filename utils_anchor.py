@@ -153,7 +153,7 @@ def anchor_inverse(fut_pred, lat_pred, anchor_traj, d_s, multi):
 
 
 def anchor_inverse_core(fut_pred, lat_pred, anchor_traj, d_s):
-    fut_adjusted = torch.zeros_like(fut_pred)
+    fut_adjusted = fut_pred
     for k in range(lat_pred.shape[0]):
         lat_class = torch.argmax(lat_pred[k, :]).detach()
         # lat_class = lat_pred[k].nonzero().size()[0]
