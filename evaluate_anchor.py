@@ -78,7 +78,7 @@ for i, data in enumerate(tsDataloader):
     # print(A.size())
     # fut_pred_max[:, k, :] = A
 
-    fut_pred_max = anchor_inverse(fut_pred_max, lat_pred, anchor_traj, args['d_s'], multi=True)
+    fut_pred_max = anchor_inverse(fut_pred_max, lat_pred, anchor_traj, args['d_s'], multi=False)
     l, c = maskedMSETest(fut_pred_max, fut, op_mask)
 
     lossVals += l.detach()
