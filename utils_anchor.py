@@ -159,6 +159,7 @@ def anchor_inverse_core(fut_pred, lat_pred, anchor_traj, d_s):
         # lat_class = lat_pred[k].nonzero().size()[0]
         anchor_tr = anchor_traj[lat_class, 0]
         anchor_tr = torch.from_numpy(anchor_tr[0:-1:d_s, :])
+        anchor_tr = anchor_tr.cuda()
         fut_adjusted[:, k, 0:3] = anchor_tr - fut_pred[:, k, 0:3]
     return fut_adjusted
 

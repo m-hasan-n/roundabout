@@ -39,9 +39,8 @@ crossEnt = torch.nn.BCELoss()
 
 
 anchor_traj = scp.loadmat('data/TrainSet.mat')['anchor_traj_mean']
-if args['use_cuda']:
-    anchor_traj = anchor_traj.cuda()
-    
+
+
 ## Initialize data loaders
 trSet = roundDataset('data/TrainSet.mat')
 valSet = roundDataset('data/ValSet.mat')
