@@ -177,7 +177,7 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
             #                           use_maneuvers=True, avg_along_time=True)
 
             l = maskedNLLTest_Int(fut_pred, lat_pred, lon_pred, fut, op_mask, args['num_lat_classes'],
-                                  args['num_lon_classes'], args['use_intention'], avg_along_time=True)
+                                  args['num_lon_classes'], use_maneuvers=True, avg_along_time=True)
 
             avg_val_lat_acc += (torch.sum(torch.max(lat_pred.data, 1)[1] == torch.max(lat_enc.data, 1)[1])).item() / \
                                lat_enc.size()[0]
