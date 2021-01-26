@@ -25,6 +25,7 @@ args['batch_norm'] = True
 args['d_s'] = 4
 
 args['num_lat_classes'] = 8
+args['num_lon_classes'] = 3
 
 # Initialize network
 net = roundNet(args)
