@@ -35,8 +35,8 @@ if args['use_cuda']:
     net = net.cuda()
 
 ## Initialize optimizer
-pretrainEpochs = 5
-trainEpochs = 3
+pretrainEpochs = 8
+trainEpochs = 0
 optimizer = torch.optim.Adam(net.parameters())
 batch_size = args['batch_size']
 crossEnt = torch.nn.BCELoss()
@@ -94,7 +94,7 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
         # Pre-train with MSE loss to speed up training
         if epoch_num < pretrainEpochs:
             fut_pred, _, _ = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc)
-            l = maskedMSE(fut_pred, fut_anchred, op_mask)
+            l = maskedMSE(fut_pred, fut_anchred, op_mask) + crossEnt(lat_pred, lat_enc) + crossEnt(lon_pred, lon_enc)
         else:
             fut_pred, lat_pred, lon_pred = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc)
             # Train with NLL loss
@@ -200,7 +200,7 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
 
 # __________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________
 
-model_fname = 'trained_models/round_3D_Intention_4s_latlong_anchor.tar'
+model_fname = 'trained_models/round_3D_Intention_4s_latlong_anchor_MSE.tar'
 torch.save(net.state_dict(), model_fname)
 
 
