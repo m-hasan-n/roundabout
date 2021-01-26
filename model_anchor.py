@@ -72,10 +72,12 @@ class roundNet(nn.Module):
         self.op = torch.nn.Linear(self.decoder_size, op_gauss_dim)
 
         self.num_lat_classes = args['num_lat_classes']
-
         self.op_lat = torch.nn.Linear(self.soc_embedding_size + self.dyn_embedding_size, self.num_lat_classes)
 
-        self.dec_ip_size = self.soc_embedding_size + self.dyn_embedding_size + self.num_lat_classes
+        self.num_lon_classes = args['num_lon_classes']
+        self.op_lon = torch.nn.Linear(self.soc_embedding_size + self.dyn_embedding_size, self.num_lon_classes)
+
+        self.dec_ip_size = self.soc_embedding_size + self.dyn_embedding_size + self.num_lat_classes + self.num_lon_classes
 
         self.dec_lstm = torch.nn.LSTM(self.dec_ip_size, self.decoder_size)
 
@@ -86,7 +88,7 @@ class roundNet(nn.Module):
 
         ## Forward Pass
 
-    def forward(self, hist, nbrs, nbr_list_len, lat_enc):
+    def forward(self, hist, nbrs, nbr_list_len, lat_enc, lon_enc):
         ## Forward pass hist:
         _, (hist_enc, _) = self.enc_lstm(self.leaky_relu(self.ip_emb(hist)))
         hist_enc = self.leaky_relu(self.dyn_emb(hist_enc.view(hist_enc.shape[1], hist_enc.shape[2])))
@@ -129,20 +131,25 @@ class roundNet(nn.Module):
 
         ## Maneuver recognition:
         lat_pred = self.softmax(self.op_lat(enc))
+        lon_pred = self.softmax(self.op_lon(enc))
 
         if self.train_flag:
-            enc = torch.cat((enc, lat_enc), 1)
+            enc = torch.cat((enc, lat_enc, lon_enc), 1)
             fut_pred = self.decode(enc)
-            return fut_pred, lat_pred
+            return fut_pred, lat_pred, lon_pred
         else:
             fut_pred = []
             ## Predict trajectory distributions for each maneuver class
-            for l in range(self.num_lat_classes):
-                lat_enc_tmp = torch.zeros_like(lat_enc)
-                lat_enc_tmp[:, l] = 1
-                enc_tmp = torch.cat((enc, lat_enc_tmp), 1)
-                fut_pred.append(self.decode(enc_tmp))
-            return fut_pred, lat_pred
+            for k in range(self.num_lon_classes):
+                for l in range(self.num_lat_classes):
+                    lat_enc_tmp = torch.zeros_like(lat_enc)
+                    lat_enc_tmp[:, l] = 1
+                    lon_enc_tmp = torch.zeros_like(lon_enc)
+                    lon_enc_tmp[:, k] = 1
+
+                    enc_tmp = torch.cat((enc, lat_enc_tmp, lon_enc_tmp), 1)
+                    fut_pred.append(self.decode(enc_tmp))
+            return fut_pred, lat_pred, lon_pred
 
 
     def decode(self, enc):

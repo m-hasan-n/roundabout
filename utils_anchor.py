@@ -20,6 +20,7 @@ class roundDataset(Dataset):
         self.enc_size = enc_size  # size of encoder LSTM
         self.ip_dim = ip_dim
         self.lat_dim = lat_dim
+        self.lon_dim = lon_dim
 
 
     def __len__(self):
@@ -39,9 +40,13 @@ class roundDataset(Dataset):
         lat_enc = np.zeros([self.lat_dim])
         lat_enc[int(lat_class )] = 1
 
+        lon_class = self.D[idx, 13] - 1
+        lon_enc = np.zeros([self.lon_dim])
+        lon_enc[int(lon_class)] = 1
+
         # Get track history 'hist' = ndarray, and future track 'fut' = ndarray
         hist = self.getHistory(vehId, t, vehId, dsId)
-        fut, fut_anchred = self.getFuture(vehId, t, dsId, lat_class)
+        fut, fut_anchred = self.getFuture(vehId, t, dsId, lat_class, lon_class)
 
         # Get track histories of all neighbours 'neighbors' = [ndarray,[],ndarray,ndarray]
         for i in grid:
@@ -49,7 +54,7 @@ class roundDataset(Dataset):
 
 
 
-        return hist, fut, neighbors, lat_enc, dsId, vehId, t, fut_anchred
+        return hist, fut, neighbors, lat_enc, lon_enc, dsId, vehId, t, fut_anchred
 
     ## Helper function to get track history
     def getHistory(self, vehId, t, refVehId, dsId):
@@ -76,7 +81,7 @@ class roundDataset(Dataset):
             return hist
 
     ## Helper function to get track future
-    def getFuture(self, vehId, t, dsId, lat_class):
+    def getFuture(self, vehId, t, dsId, lat_class, lon_class):
 
         vehTrack = self.T[dsId - 1][vehId - 1].transpose()
         refPos = vehTrack[np.where(vehTrack[:, 0] == t)][0, 1:self.ip_dim + 1]
@@ -84,7 +89,8 @@ class roundDataset(Dataset):
         enpt = np.minimum(len(vehTrack), np.argwhere(vehTrack[:, 0] == t).item() + self.t_f + 1)
         fut = vehTrack[stpt:enpt:self.d_s, 1:self.ip_dim + 1] - refPos
 
-        anchor_traj = self.A[int(lat_class),0]
+        # anchor_traj = self.A[int(lat_class),0]
+        anchor_traj = self.A[int(lon_class), int(lat_class)]
         anchor_traj = anchor_traj[0:-1:self.d_s,:]
 
         fut_anchred = anchor_traj[0:len(fut),:]-fut
@@ -97,7 +103,7 @@ class roundDataset(Dataset):
         # Initialize neighbors and neighbors length batches:
         # nbr_batch_size = 0
         nbr_list_len = torch.zeros(len(samples), 1)
-        for sample_id, (_, _, nbrs, _, _, _, _, _) in enumerate(samples):
+        for sample_id, (_, _, nbrs, _,_, _, _, _, _) in enumerate(samples):
             nbr_list_len[sample_id] = sum([len(nbrs[i]) != 0 for i in range(len(nbrs))])
 
         nbr_batch_size = int((sum(nbr_list_len)).item())
@@ -112,11 +118,12 @@ class roundDataset(Dataset):
         vehicle_ids_batch = torch.zeros(len(samples), 1)
         frame_ids_batch = torch.zeros(len(samples), 1)
         lat_enc_batch = torch.zeros(len(samples), self.lat_dim)
+        lon_enc_batch = torch.zeros(len(samples), self.lon_dim)
         fut_anchred_batch = torch.zeros(self.t_f // self.d_s, len(samples), self.ip_dim)
 
         count = 0
         # , en_ex_enc, fut_anch
-        for sampleId, (hist, fut, nbrs, lat_enc, ds_ids, vehicle_ids, frame_ids, fut_anchored) in enumerate(samples):
+        for sampleId, (hist, fut, nbrs, lat_enc, lon_enc, ds_ids, vehicle_ids, frame_ids, fut_anchored) in enumerate(samples):
 
             # Set up history, future, lateral maneuver and longitudinal maneuver batches:
             for k in range(self.ip_dim):
@@ -129,6 +136,7 @@ class roundDataset(Dataset):
             vehicle_ids_batch[sampleId, :] = torch.tensor(vehicle_ids.astype(np.float64))
             frame_ids_batch[sampleId, :] = torch.tensor(frame_ids.astype(int).astype(np.float64))
             lat_enc_batch[sampleId, :] = torch.from_numpy(lat_enc)
+            lon_enc_batch[sampleId, :] = torch.from_numpy(lon_enc)
 
             # Set up neighbor, neighbor sequence length, and mask batches:
             for id, nbr in enumerate(nbrs):
@@ -137,27 +145,28 @@ class roundDataset(Dataset):
                         nbrs_batch[0:len(nbr), count, k] = torch.from_numpy(nbr[:, k])
                     count += 1
 
-        return hist_batch, nbrs_batch, nbr_list_len, fut_batch, lat_enc_batch, op_mask_batch, ds_ids_batch, vehicle_ids_batch, frame_ids_batch, fut_anchred_batch
+        return hist_batch, nbrs_batch, nbr_list_len, fut_batch, lat_enc_batch,lon_enc_batch, op_mask_batch, ds_ids_batch, vehicle_ids_batch, frame_ids_batch, fut_anchred_batch
 
 
-def anchor_inverse(fut_pred, lat_pred, anchor_traj, d_s, multi):
+def anchor_inverse(fut_pred, lat_pred, lon_pred, anchor_traj, d_s, multi):
     if multi:
         fut_adjusted=[]
         for l in range(len(fut_pred)):
-            fut_adjusted.append(anchor_inverse_core(fut_pred[l], lat_pred, anchor_traj, d_s))
+            fut_adjusted.append(anchor_inverse_core(fut_pred[l], lat_pred, lon_pred, anchor_traj, d_s))
     else:
-        fut_adjusted = anchor_inverse_core(fut_pred, lat_pred, anchor_traj, d_s)
+        fut_adjusted = anchor_inverse_core(fut_pred, lat_pred, lon_pred, anchor_traj, d_s)
 
     return fut_adjusted
 
 
 
-def anchor_inverse_core(fut_pred, lat_pred, anchor_traj, d_s):
+def anchor_inverse_core(fut_pred, lat_pred, lon_pred, anchor_traj, d_s):
     fut_adjusted = fut_pred
     for k in range(lat_pred.shape[0]):
         lat_class = torch.argmax(lat_pred[k, :]).detach()
+        lon_class = torch.argmax(lon_pred[k, :]).detach()
         # lat_class = lat_pred[k].nonzero().size()[0]
-        anchor_tr = anchor_traj[lat_class, 0]
+        anchor_tr = anchor_traj[lon_class, lat_class]
         anchor_tr = torch.from_numpy(anchor_tr[0:-1:d_s, :])
         anchor_tr = anchor_tr.cuda()
         fut_adjusted[:, k, 0:3] = anchor_tr - fut_pred[:, k, 0:3]
@@ -335,6 +344,63 @@ def maskedNLLTest_LatInt(fut_pred, lat_pred, fut, op_mask, num_lat_classes,use_m
             counts = torch.sum(op_mask[:, :, 0], dim=1)
             return lossVal,counts
 
+
+
+## NLL for sequence, outputs sequence of NLL values for each time-step, uses mask for variable output lengths, used for evaluation
+def maskedNLLTest_Int(fut_pred, lat_pred, lon_pred, fut, op_mask, num_lat_classes, num_lon_classes,use_maneuvers = True, avg_along_time = False):
+    if use_maneuvers:
+        acc = torch.zeros(op_mask.shape[0],op_mask.shape[1],num_lon_classes*num_lat_classes).cuda()
+        # acc = torch.zeros(op_mask.shape[0], op_mask.shape[1], num_lon_classes * num_lat_classes)
+
+        count = 0
+        for k in range(num_lon_classes):
+            for l in range(num_lat_classes):
+                wts = lat_pred[:,l]*lon_pred[:,k]
+                wts = wts.repeat(len(fut_pred[0]),1)
+                y_pred = fut_pred[k*num_lat_classes + l]
+                y_gt = fut
+
+                # FInd the NLL
+                out = compute_nll_mat_red(y_pred, y_gt)
+
+                # If we represent likelihood in m^(-1):
+                # out = -(0.5 * torch.pow(ohr, 2) * (torch.pow(sigX, 2) * torch.pow(x - muX, 2) + torch.pow(sigY, 2) * torch.pow(y - muY, 2) - 2 * rho * torch.pow(sigX, 1) * torch.pow(sigY, 1) * (x - muX) * (y - muY)) - torch.log(sigX * sigY * ohr) + 1.8379 - 0.5160)
+                acc[:, :, count] =  out + torch.log(wts.cpu())
+                count+=1
+        acc = -logsumexp(acc, dim = 2)
+        acc = acc * op_mask[:,:,0]
+        if avg_along_time:
+            lossVal = torch.sum(acc) / torch.sum(op_mask[:, :, 0])
+            return lossVal
+        else:
+            lossVal = torch.sum(acc,dim=1)
+            counts = torch.sum(op_mask[:,:,0],dim=1)
+            return lossVal,counts
+    else:
+        acc = torch.zeros(op_mask.shape[0], op_mask.shape[1], 1).cuda()
+        y_pred = fut_pred
+        y_gt = fut
+        muX = y_pred[:, :, 0]
+        muY = y_pred[:, :, 1]
+        sigX = y_pred[:, :, 2]
+        sigY = y_pred[:, :, 3]
+        rho = y_pred[:, :, 4]
+        ohr = torch.pow(1 - torch.pow(rho, 2), -0.5)
+        x = y_gt[:, :, 0]
+        y = y_gt[:, :, 1]
+        # If we represent likelihood in feet^(-1):
+        out = 0.5*torch.pow(ohr, 2)*(torch.pow(sigX, 2)*torch.pow(x-muX, 2) + torch.pow(sigY, 2)*torch.pow(y-muY, 2) - 2 * rho*torch.pow(sigX, 1)*torch.pow(sigY, 1)*(x-muX)*(y-muY)) - torch.log(sigX*sigY*ohr) + 1.8379
+        # If we represent likelihood in m^(-1):
+        # out = 0.5 * torch.pow(ohr, 2) * (torch.pow(sigX, 2) * torch.pow(x - muX, 2) + torch.pow(sigY, 2) * torch.pow(y - muY, 2) - 2 * rho * torch.pow(sigX, 1) * torch.pow(sigY, 1) * (x - muX) * (y - muY)) - torch.log(sigX * sigY * ohr) + 1.8379 - 0.5160
+        acc[:, :, 0] = out
+        acc = acc * op_mask[:, :, 0:1]
+        if avg_along_time:
+            lossVal = torch.sum(acc[:, :, 0]) / torch.sum(op_mask[:, :, 0])
+            return lossVal
+        else:
+            lossVal = torch.sum(acc[:,:,0], dim=1)
+            counts = torch.sum(op_mask[:, :, 0], dim=1)
+            return lossVal,counts
 
 
 
