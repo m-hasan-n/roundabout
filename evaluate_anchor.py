@@ -31,7 +31,7 @@ args['num_lon_classes'] = 3
 net = roundNet(args)
 
 # load the trained model
-net_fname = 'trained_models/round_3D_Intention_4s_latlong_anchor_IntLoss.tar'
+net_fname = 'trained_models/round_3D_Intention_4s_latlong_anchor_rho.tar'
 if (args['use_cuda']):
     net.load_state_dict(torch.load(net_fname), strict=False)
 else:
