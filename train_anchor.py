@@ -93,12 +93,9 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
 
         # Pre-train with MSE loss to speed up training
         if epoch_num < pretrainEpochs:
-            fut_pred, lat_pred, lon_pred = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc)
-            l = maskedMSE(fut_pred, fut_anchred, op_mask) + crossEnt(lat_pred, lat_enc) + crossEnt(lon_pred, lon_enc)
-            avg_lat_acc += (torch.sum(torch.max(lat_pred.data, 1)[1] == torch.max(lat_enc.data, 1)[1])).item() / \
-                           lat_enc.size()[0]
-            avg_lon_acc += (torch.sum(torch.max(lon_pred.data, 1)[1] == torch.max(lon_enc.data, 1)[1])).item() / \
-                           lon_enc.size()[0]
+            fut_pred, _, _ = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc)
+            l = maskedMSE(fut_pred, fut_anchred, op_mask)
+
         else:
             fut_pred, lat_pred, lon_pred = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc)
             # Train with NLL loss
@@ -204,7 +201,7 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
 
 # __________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________
 
-model_fname = 'trained_models/round_3D_Intention_4s_latlong_anchor_IntLoss.tar'
+model_fname = 'trained_models/round_3D_Intention_4s_latlong_anchor_rho.tar'
 torch.save(net.state_dict(), model_fname)
 
 

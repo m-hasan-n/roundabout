@@ -208,7 +208,7 @@ def outputActivation(x):
         sigX = torch.exp(sigX)
         sigY = torch.exp(sigY)
         sigTh = torch.exp(sigTh)
-        rho = 0.4*torch.tanh(rho)
+        rho = torch.tanh(rho)
 
         out = torch.cat([muX, muY, muTh, sigX, sigY, sigTh, rho], dim=2)
 

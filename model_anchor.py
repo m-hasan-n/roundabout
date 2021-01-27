@@ -2,7 +2,7 @@ from __future__ import division
 import torch
 from torch.autograd import Variable
 import torch.nn as nn
-from utils import outputActivation
+from utils_anchor import outputActivation
 
 
 def make_mlp_reduced(dim_in, dim_out, batch_norm):
