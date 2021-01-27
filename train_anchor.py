@@ -35,8 +35,8 @@ if args['use_cuda']:
     net = net.cuda()
 
 ## Initialize optimizer
-pretrainEpochs = 8
-trainEpochs = 0
+pretrainEpochs = 5
+trainEpochs = 3
 optimizer = torch.optim.Adam(net.parameters())
 batch_size = args['batch_size']
 crossEnt = torch.nn.BCELoss()
@@ -204,7 +204,7 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
 
 # __________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________
 
-model_fname = 'trained_models/round_3D_Intention_4s_latlong_anchor_MSE.tar'
+model_fname = 'trained_models/round_3D_Intention_4s_latlong_anchor_IntLoss.tar'
 torch.save(net.state_dict(), model_fname)
 
 
