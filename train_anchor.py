@@ -201,7 +201,7 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
 
 # __________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________
 
-model_fname = 'trained_models/round_3D_Intention_4s_latlong_anchor_rho.tar'
+model_fname = 'trained_models/round_3D_Intention_timeChange_latlong_anchor.tar'
 torch.save(net.state_dict(), model_fname)
 
 
