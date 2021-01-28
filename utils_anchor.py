@@ -89,8 +89,8 @@ class roundDataset(Dataset):
         enpt = np.minimum(len(vehTrack), np.argwhere(vehTrack[:, 0] == t).item() + self.t_f + 1)
         fut = vehTrack[stpt:enpt:self.d_s, 1:self.ip_dim + 1] - refPos
 
-        # anchor_traj = self.A[int(lat_class),0]
-        anchor_traj = self.A[int(lon_class), int(lat_class)]
+        anchor_traj = self.A[int(lat_class),0]
+        # anchor_traj = self.A[int(lon_class), int(lat_class)]
         anchor_traj = anchor_traj[0:-1:self.d_s,:]
 
         fut_anchred = anchor_traj[0:len(fut),:]-fut
@@ -164,9 +164,9 @@ def anchor_inverse_core(fut_pred, lat_pred, lon_pred, anchor_traj, d_s):
     fut_adjusted = fut_pred
     for k in range(lat_pred.shape[0]):
         lat_class = torch.argmax(lat_pred[k, :]).detach()
-        lon_class = torch.argmax(lon_pred[k, :]).detach()
-        # lat_class = lat_pred[k].nonzero().size()[0]
-        anchor_tr = anchor_traj[lon_class, lat_class]
+        # lon_class = torch.argmax(lon_pred[k, :]).detach()
+        # anchor_tr = anchor_traj[lon_class, lat_class]
+        anchor_tr = anchor_traj[lat_class, 0]
         anchor_tr = torch.from_numpy(anchor_tr[0:-1:d_s, :])
         anchor_tr = anchor_tr.cuda()
         fut_adjusted[:, k, 0:3] = anchor_tr - fut_pred[:, k, 0:3]
