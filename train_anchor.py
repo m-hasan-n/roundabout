@@ -27,7 +27,7 @@ args['num_lon_classes'] = 3
 args['num_lat_classes'] = 8
 
 args['d_s'] = 4
-args['multi_dist']=False
+args['anchor_int'] = False
 
 # Initialize network
 net = roundNet(args)
@@ -42,6 +42,7 @@ batch_size = args['batch_size']
 crossEnt = torch.nn.BCELoss()
 
 anchor_traj = scp.loadmat('data/TrainSet.mat')['anchor_traj_mean']
+anchor_traj_hist = scp.loadmat('data/TrainSet.mat')['anchor_traj_mean_hist']
 
 
 ## Initialize data loaders
@@ -99,11 +100,11 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
         else:
             fut_pred, lat_pred, lon_pred = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc)
             # Train with NLL loss
-            l = maskedNLL(fut_pred, fut_anchred, op_mask) + crossEnt(lat_pred, lat_enc) #+ crossEnt(lon_pred, lon_enc)
+            l = maskedNLL(fut_pred, fut_anchred, op_mask) + crossEnt(lat_pred, lat_enc) + crossEnt(lon_pred, lon_enc)
             avg_lat_acc += (torch.sum(torch.max(lat_pred.data, 1)[1] == torch.max(lat_enc.data, 1)[1])).item() / \
                            lat_enc.size()[0]
-            # avg_lon_acc += (torch.sum(torch.max(lon_pred.data, 1)[1] == torch.max(lon_enc.data, 1)[1])).item() / \
-            #                lon_enc.size()[0]
+            avg_lon_acc += (torch.sum(torch.max(lon_pred.data, 1)[1] == torch.max(lon_enc.data, 1)[1])).item() / \
+                           lon_enc.size()[0]
 
         # Backprop and update weights
         optimizer.zero_grad()
@@ -174,17 +175,17 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
 
             fut_pred = anchor_inverse(fut_pred, lat_pred, lon_pred, anchor_traj, args['d_s'], multi=True)
 
-            l = maskedNLLTest_LatInt(fut_pred, lat_pred, fut, op_mask, args['num_lat_classes'],
-                                      use_maneuvers=True, avg_along_time=True)
+            # l = maskedNLLTest_LatInt(fut_pred, lat_pred, fut, op_mask, args['num_lat_classes'],
+            #                           use_maneuvers=True, avg_along_time=True)
 
-            # l = maskedNLLTest_Int(fut_pred, lat_pred, lon_pred, fut, op_mask, args['num_lat_classes'],
-            #                       args['num_lon_classes'], use_maneuvers=True, avg_along_time=True)
+            l = maskedNLLTest_Int(fut_pred, lat_pred, lon_pred, fut, op_mask, args['num_lat_classes'],
+                                  args['num_lon_classes'], use_maneuvers=True, avg_along_time=True)
 
             avg_val_lat_acc += (torch.sum(torch.max(lat_pred.data, 1)[1] == torch.max(lat_enc.data, 1)[1])).item() / \
                                lat_enc.size()[0]
 
-            # avg_val_lon_acc += (torch.sum(torch.max(lon_pred.data, 1)[1] == torch.max(lon_enc.data, 1)[1])).item() / \
-            #                    lon_enc.size()[0]
+            avg_val_lon_acc += (torch.sum(torch.max(lon_pred.data, 1)[1] == torch.max(lon_enc.data, 1)[1])).item() / \
+                               lon_enc.size()[0]
 
         avg_val_loss += l.item()
         val_batch_count += 1
@@ -201,7 +202,7 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
 
 # __________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________
 
-model_fname = 'trained_models/round_3D_Intention_timeChange_latOnly_anchor.tar'
+model_fname = 'trained_models/round_3D_Intention_timeChange_latlong_anchor_hist.tar'
 torch.save(net.state_dict(), model_fname)
 
 

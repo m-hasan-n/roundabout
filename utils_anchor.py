@@ -13,6 +13,7 @@ class roundDataset(Dataset):
         self.D = scp.loadmat(mat_file)['traj']
         self.T = scp.loadmat(mat_file)['tracks']
         self.A = scp.loadmat(mat_file)['anchor_traj_mean']
+        self.H = scp.loadmat(mat_file)['anchor_traj_mean_hist']
 
         self.t_h = t_h  # length of track history
         self.t_f = t_f  # length of predicted trajectory
@@ -45,7 +46,7 @@ class roundDataset(Dataset):
         lon_enc[int(lon_class)] = 1
 
         # Get track history 'hist' = ndarray, and future track 'fut' = ndarray
-        hist = self.getHistory(vehId, t, vehId, dsId)
+        hist = self.getHistory(vehId, t, vehId, dsId, lat_class, lon_class)
         fut, fut_anchred = self.getFuture(vehId, t, dsId, lat_class, lon_class)
 
         # Get track histories of all neighbours 'neighbors' = [ndarray,[],ndarray,ndarray]
@@ -57,7 +58,7 @@ class roundDataset(Dataset):
         return hist, fut, neighbors, lat_enc, lon_enc, dsId, vehId, t, fut_anchred
 
     ## Helper function to get track history
-    def getHistory(self, vehId, t, refVehId, dsId):
+    def getHistory(self, vehId, t, refVehId, dsId, lat_class=None, lon_class=None):
         if vehId == 0:
             return np.empty([0, self.ip_dim])
         else:
@@ -76,6 +77,12 @@ class roundDataset(Dataset):
                 enpt = np.argwhere(vehTrack[:, 0] == t).item() + 1
                 hist = vehTrack[stpt:enpt:self.d_s, 1:self.ip_dim + 1] - refPos
 
+                #anchor the hist of the ego vehicle
+                if vehId==refVehId:
+                    anchor_traj = self.H[int(lon_class), int(lat_class)]
+                    anchor_traj = anchor_traj[0:-1:self.d_s, :]
+                    hist = anchor_traj[0:len(hist), :] - hist
+
             if len(hist) < self.t_h // self.d_s + 1:
                 return np.empty([0, self.ip_dim])
             return hist
@@ -89,8 +96,8 @@ class roundDataset(Dataset):
         enpt = np.minimum(len(vehTrack), np.argwhere(vehTrack[:, 0] == t).item() + self.t_f + 1)
         fut = vehTrack[stpt:enpt:self.d_s, 1:self.ip_dim + 1] - refPos
 
-        anchor_traj = self.A[int(lat_class),0]
-        # anchor_traj = self.A[int(lon_class), int(lat_class)]
+        # anchor_traj = self.A[int(lat_class),0]
+        anchor_traj = self.A[int(lon_class), int(lat_class)]
         anchor_traj = anchor_traj[0:-1:self.d_s,:]
 
         fut_anchred = anchor_traj[0:len(fut),:]-fut
@@ -164,9 +171,9 @@ def anchor_inverse_core(fut_pred, lat_pred, lon_pred, anchor_traj, d_s):
     fut_adjusted = fut_pred
     for k in range(lat_pred.shape[0]):
         lat_class = torch.argmax(lat_pred[k, :]).detach()
-        # lon_class = torch.argmax(lon_pred[k, :]).detach()
-        # anchor_tr = anchor_traj[lon_class, lat_class]
-        anchor_tr = anchor_traj[lat_class, 0]
+        lon_class = torch.argmax(lon_pred[k, :]).detach()
+        anchor_tr = anchor_traj[lon_class, lat_class]
+        # anchor_tr = anchor_traj[lat_class, 0]
         anchor_tr = torch.from_numpy(anchor_tr[0:-1:d_s, :])
         anchor_tr = anchor_tr.cuda()
         fut_adjusted[:, k, 0:3] = anchor_tr - fut_pred[:, k, 0:3]
