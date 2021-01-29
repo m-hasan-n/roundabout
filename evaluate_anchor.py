@@ -31,7 +31,7 @@ args['num_lon_classes'] = 3
 net = roundNet(args)
 
 # load the trained model
-net_fname = 'trained_models/round_3D_Intention_timeChange_latOnly_anchor.tar'
+net_fname = 'trained_models/round_3D_Intention_timeChange_latlong_anchor_hist.tar'
 if (args['use_cuda']):
     net.load_state_dict(torch.load(net_fname), strict=False)
 else:
@@ -72,9 +72,9 @@ for i, data in enumerate(tsDataloader):
     fut_pred_max = torch.zeros_like(fut_pred[0])
     for k in range(lat_pred.shape[0]):
         lat_man = torch.argmax(lat_pred[k, :]).detach()
-        # lon_man = torch.argmax(lon_pred[k, :]).detach()
-        # indx = lon_man * args['num_lat_classes'] + lat_man
-        indx = lat_man
+        lon_man = torch.argmax(lon_pred[k, :]).detach()
+        indx = lon_man * args['num_lat_classes'] + lat_man
+        # indx = lat_man
         fut_pred_max[:, k,:] = fut_pred[indx][:, k, :]
 
     fut_pred_max = anchor_inverse(fut_pred_max, lat_pred, lon_pred, anchor_traj, args['d_s'], multi=False)
