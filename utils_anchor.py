@@ -46,7 +46,7 @@ class roundDataset(Dataset):
         lon_enc[int(lon_class)] = 1
 
         # Get track history 'hist' = ndarray, and future track 'fut' = ndarray
-        hist = self.getHistory(vehId, t, vehId, dsId, lat_class, lon_class)
+        hist = self.getHistory(vehId, t, vehId, dsId)
         fut, fut_anchred = self.getFuture(vehId, t, dsId, lat_class, lon_class)
 
         # Get track histories of all neighbours 'neighbors' = [ndarray,[],ndarray,ndarray]
@@ -77,11 +77,11 @@ class roundDataset(Dataset):
                 enpt = np.argwhere(vehTrack[:, 0] == t).item() + 1
                 hist = vehTrack[stpt:enpt:self.d_s, 1:self.ip_dim + 1] - refPos
 
-                #anchor the hist of the ego vehicle
-                if vehId==refVehId:
-                    anchor_traj = self.H[int(lon_class), int(lat_class)]
-                    anchor_traj = anchor_traj[0:-1:self.d_s, :]
-                    hist = anchor_traj[0:len(hist), :] - hist
+                # #anchor the hist of the ego vehicle
+                # if vehId==refVehId:
+                #     anchor_traj = self.H[int(lon_class), int(lat_class)]
+                #     anchor_traj = anchor_traj[0:-1:self.d_s, :]
+                #     hist = anchor_traj[0:len(hist), :] - hist
 
             if len(hist) < self.t_h // self.d_s + 1:
                 return np.empty([0, self.ip_dim])
