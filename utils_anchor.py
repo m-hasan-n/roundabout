@@ -179,7 +179,7 @@ def multi_pred(lat_pred, lon_pred, fut_pred, ind, anchor_traj, d_s):
             anchor_tr = torch.from_numpy(anchor_tr[0:-1:d_s, :])
             anchor_tr = anchor_tr.cuda()
 
-            fut_inst = anchor_tr - fut_inst
+            fut_inst[:, 0:3] = anchor_tr - fut_inst[:, 0:3]
 
             fut_wt = fut_wt + wt * fut_inst
 
