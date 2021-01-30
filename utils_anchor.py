@@ -13,7 +13,7 @@ class roundDataset(Dataset):
         self.D = scp.loadmat(mat_file)['traj']
         self.T = scp.loadmat(mat_file)['tracks']
         self.A = scp.loadmat(mat_file)['anchor_traj_mean']
-        self.H = scp.loadmat(mat_file)['anchor_traj_mean_hist']
+        # self.H = scp.loadmat(mat_file)['anchor_traj_mean_hist']
 
         self.t_h = t_h  # length of track history
         self.t_f = t_f  # length of predicted trajectory
