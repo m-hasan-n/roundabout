@@ -86,12 +86,12 @@ for i, data in enumerate(tsDataloader):
         indx = lon_man * args['num_lat_classes'] + lat_man
         # indx = lat_man
         fut_pred_max[:, k,:] = fut_pred[indx][:, k, :]
-        fut_pred_wt[:, k,:] = multi_pred(lat_pred[k, :], lon_pred[k, :], fut_pred, k)
+        fut_pred_wt[:, k,:] = multi_pred(lat_pred[k, :], lon_pred[k, :], fut_pred, k, anchor_traj, args['d_s'])
 
 
 
     fut_pred_max = anchor_inverse(fut_pred_max, lat_pred, lon_pred, anchor_traj, args['d_s'], multi=False)
-    fut_pred_wt = anchor_inverse(fut_pred_wt, lat_pred, lon_pred, anchor_traj, args['d_s'], multi=False)
+    # fut_pred_wt = anchor_inverse(fut_pred_wt, lat_pred, lon_pred, anchor_traj, args['d_s'], multi=False)
 
     l, c = maskedMSETest(fut_pred_max, fut, op_mask)
     l2, c2 = maskedMSETest(fut_pred_wt, fut, op_mask)
