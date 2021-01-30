@@ -165,6 +165,18 @@ def anchor_inverse(fut_pred, lat_pred, lon_pred, anchor_traj, d_s, multi):
 
     return fut_adjusted
 
+def multi_pred(lat_pred, lon_pred, fut_pred, ind):
+    fut_wt = torch.zeros_like(fut_pred[0][:, 0, :])
+    num_lat = lat_pred.shape[0]
+
+    for k in range(lon_pred.shape[0]):
+        for l in range(num_lat):
+            indx = k * num_lat + l
+            fut_inst = fut_pred[indx][:, ind, :]
+            wt = lon_pred[k]*lat_pred[l]
+            fut_wt = fut_wt + wt*fut_inst
+
+    return fut_wt
 
 
 def anchor_inverse_core(fut_pred, lat_pred, lon_pred, anchor_traj, d_s):
