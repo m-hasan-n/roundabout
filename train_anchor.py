@@ -25,9 +25,9 @@ args['batch_norm'] = True
 
 args['num_lon_classes'] = 3
 args['num_lat_classes'] = 8
-
 args['d_s'] = 4
-args['anchor_int'] = False
+
+
 
 # Initialize network
 net = roundNet(args)
@@ -42,7 +42,7 @@ batch_size = args['batch_size']
 crossEnt = torch.nn.BCELoss()
 
 anchor_traj = scp.loadmat('data/TrainSet.mat')['anchor_traj_mean']
-anchor_traj_hist = scp.loadmat('data/TrainSet.mat')['anchor_traj_mean_hist']
+# anchor_traj_hist = scp.loadmat('data/TrainSet.mat')['anchor_traj_mean_hist']
 
 
 ## Initialize data loaders
@@ -202,7 +202,7 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
 
 # __________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________
 
-model_fname = 'trained_models/round_3D_Intention_timeChange_latlong_anchor_hist.tar'
+model_fname = 'trained_models/round_3D_Intention_timeChange_latlong_anchor.tar'
 torch.save(net.state_dict(), model_fname)
 
 
