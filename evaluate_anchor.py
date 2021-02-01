@@ -110,7 +110,7 @@ print(torch.pow(lossVals2 / counts2, 0.5))  # Calculate RMSE
 
 
 loss_total = torch.pow(lossVals / counts, 0.5)
-fname = 'outfiles/rmse_from_code_' + str(args['ip_dim']) +'D_intention_4s_latlon_anchor.csv'
+fname = 'outfiles/rmse_from_code_' + str(args['ip_dim']) +'D_intention_timeChange_latlong_anchor.csv'
 rmse_file = open(fname, 'w')
 np.savetxt(rmse_file, loss_total.cpu())
 
