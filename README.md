@@ -15,11 +15,12 @@ the public RounD dataset.
 
 ## RounD Dataset Pre-processing
 The [RounD Dataset](https://www.round-dataset.com/#download) is a new dataset of naturalistic
-road user trajectories recorded at German roundabouts. Download the dataset to a 'data' directory. After downloading the dataset, pre-process it by running the MATLAB script:
+road user trajectories recorded at German roundabouts. 
+Download the dataset to the 'rounD' directory, then run the following MATLAB script:
 ```
 preprocess_rounD.m
 ```
-This will do the required pre-processing, split the dataset into train, validation and test subsets, and save the subsets into the 'data' directory.
+This will do the required pre-processing, split the dataset into train, validation and test subsets, and save such subsets into the 'data' directory.
 
 ## Model Arguments
 The default network arguments are in:
