@@ -14,7 +14,7 @@ args['batch_size'] = 128
 args['bottleneck_dim'] = 64
 args['batch_norm'] = True
 
-
+# Number of the lateral and longitudinal classes
 args['num_lat_classes'] = 8
 args['num_lon_classes'] = 3
 
@@ -23,13 +23,13 @@ args['t_h'] = 50
 args['t_f'] = 100
 args['d_s'] = 4
 
-
-args['pretrainEpochs'] = 0
+# Number of training epochs
+args['pretrainEpochs'] = 5
 args['trainEpochs'] = 3
 
-args['use_anchors'] = True
+# Using  intention prediction and anchor trajectories
 args['use_intention'] = True
-
+args['use_anchors'] = True
 
 
 
