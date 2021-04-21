@@ -39,11 +39,11 @@ You can start model training by running:
 train.py
 ```
 
-To test a trained model, first create an 'outfiles' directory, then run:
+To test a trained model, first create an 'eval_res' directory, then run:
 ```
 evaluate.py
 ```
-which will load and test the trained model defined by the selected model arguments. 
+which will load and test the trained model defined by the selected model arguments. The RMSE results will be saved as csv files to the 'eval_res' directory. 
 
 ## Citation
 If you find this code useful for your research, please cite [our work](http://arxiv.org/):
