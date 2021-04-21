@@ -1,10 +1,8 @@
 from __future__ import print_function
 import torch
 from model import roundNet
-from utils import roundDataset, maskedNLL, maskedMSETest, \
-    maskedNLLTest, saveResultFiles, maskedMSETest_XY, anchor_inverse, multi_pred
+from utils import roundDataset, maskedMSETest, anchor_inverse, multi_pred
 from torch.utils.data import DataLoader
-import time
 import numpy as np
 import scipy.io as scp
 
@@ -18,11 +16,12 @@ net = roundNet(args)
 # load the trained model
 model_basename = 'round_' + str(args['ip_dim']) + 'D_'
 if args['use_intention']:
-    model_basename += 'Int_'
+    model_basename += 'Intention_'
     if args['use_anchors']:
-        model_basename += 'Anch'
+        model_basename += 'Anchors'
 net_fname = 'trained_models/' + model_basename + '.tar'
 
+net_fname = 'trained_models/round_3D_Intention_timeChange_latlong_anchor.tar'
 
 if (args['use_cuda']):
     net.load_state_dict(torch.load(net_fname), strict=False)
@@ -47,7 +46,6 @@ if args['use_cuda']:
     counts2 = counts2.cuda()
 
 for i, data in enumerate(tsDataloader):
-    # , en_ex_enc, fut_anch
     hist, nbrs, nbr_list_len, fut, lat_enc, lon_enc, op_mask, \
     ds_ids, vehicle_ids, frame_ids, fut_anchred  = data
 
