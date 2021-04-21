@@ -1,6 +1,6 @@
 ## Network Arguments
 args = {}
-args['use_cuda'] = False
+args['use_cuda'] = True
 args['ip_dim'] = 3
 args['Gauss_reduced'] = True
 args['encoder_size'] = 32
