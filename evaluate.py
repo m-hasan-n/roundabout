@@ -1,57 +1,28 @@
 from __future__ import print_function
 import torch
 from model import roundNet
-from utils import roundDataset, maskedNLL, maskedMSETest, maskedNLLTest, saveResultFiles, maskedMSETest_XY
+from utils import roundDataset, maskedNLL, maskedMSETest, \
+    maskedNLLTest, saveResultFiles, maskedMSETest_XY, anchor_inverse, multi_pred
 from torch.utils.data import DataLoader
 import time
 import numpy as np
 import scipy.io as scp
 
-# REPRODUCIBILITY
-# torch.manual_seed(0)
-# np.random.seed(0)
-# torch.backends.cudnn.benchmark = False
-# torch.backends.cudnn.deterministic = True
-# # torch.set_deterministic(True)
-# #for lstm
-# CUDA_LAUNCH_BLOCKING=1
-
-
 ## Network Arguments
-args = {}
-args['use_cuda'] = True
-args['ip_dim'] = 3
-args['Gauss_reduced'] = True
-args['encoder_size'] = 32
-args['decoder_size'] = 64
-args['in_length'] = 13
-args['out_length'] = 25
-args['dyn_embedding_size'] = 16
-args['input_embedding_size'] = 16
+from model_args import args
 args['train_flag'] = False
-args['batch_size'] = 128
-args['bottleneck_dim'] = 64
-args['batch_norm'] = True
-
-# args['d_s'] = 4
-
-args['use_intention'] = True
-if args['use_intention']:
-    args['num_lat_classes'] = 8
-    args['num_lon_classes'] = 3
-
-args['lat_only'] = True
-
-args['use_entry_exit_int'] = False
-if args['use_entry_exit_int']:
-    args['num_en_ex_classes'] = 2
 
 # Initialize network
 net = roundNet(args)
 
 # load the trained model
-# net_fname = 'trained_models/round_baseline.tar'
-net_fname = 'trained_models/round_3D_Intention_4s_latOnly.tar'
+model_basename = 'round_' + str(args['ip_dim']) + 'D_'
+if args['use_intention']:
+    model_basename += 'Int_'
+    if args['use_anchors']:
+        model_basename += 'Anch'
+net_fname = 'trained_models/' + model_basename + '.tar'
+
 
 if (args['use_cuda']):
     net.load_state_dict(torch.load(net_fname), strict=False)
@@ -59,22 +30,26 @@ else:
     net.load_state_dict(torch.load(net_fname , map_location= lambda storage, loc: storage), strict=False)
 
 ## Initialize data loaders
-ds_matfile = 'data/TestSet.mat'
-tsSet = roundDataset(ds_matfile)
+tsSet = roundDataset('data/TestSet.mat')
 tsDataloader = DataLoader(tsSet,batch_size=128,shuffle=True,num_workers=8,collate_fn=tsSet.collate_fn)
-# anchor_trajs = scp.loadmat(ds_matfile)['anchor_traj_raw']
+anchor_traj = scp.loadmat('data/TrainSet.mat')['anchor_traj_mean']
 
 lossVals = torch.zeros(args['out_length'])
 counts = torch.zeros(args['out_length'])
+lossVals2 = torch.zeros(args['out_length'])
+counts2 = torch.zeros(args['out_length'])
 
 if args['use_cuda']:
     net = net.cuda()
     lossVals = lossVals.cuda()
     counts = counts.cuda()
+    lossVals2 = lossVals2.cuda()
+    counts2 = counts2.cuda()
 
 for i, data in enumerate(tsDataloader):
     # , en_ex_enc, fut_anch
-    hist, nbrs, nbr_list_len, fut, lat_enc, lon_enc, op_mask, ds_ids, vehicle_ids, frame_ids, goal_enc  = data
+    hist, nbrs, nbr_list_len, fut, lat_enc, lon_enc, op_mask, \
+    ds_ids, vehicle_ids, frame_ids, fut_anchred  = data
 
     if args['use_cuda']:
         hist = hist.cuda()
@@ -87,38 +62,30 @@ for i, data in enumerate(tsDataloader):
         frame_ids = frame_ids.cuda()
         lat_enc = lat_enc.cuda()
         lon_enc = lon_enc.cuda()
-        goal_enc = goal_enc.cuda()
-        # en_ex_enc = en_ex_enc.cuda()
-        # fut_anch = fut_anch.cuda()
+        fut_anchred = fut_anchred.cuda()
 
     # Forward pass
     if args['use_intention']:
-        if args['use_entry_exit_int']:
-            fut_pred, lat_pred, lon_pred, en_ex_pred = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc, en_ex_enc)
-        else:
-            # en_ex_enc
-            fut_pred, lat_pred, lon_pred = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc)
+
+        fut_pred, lat_pred, lon_pred = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc)
 
         fut_pred_max = torch.zeros_like(fut_pred[0])
+        fut_pred_wt = torch.zeros_like(fut_pred[0])
+
         for k in range(lat_pred.shape[0]):
             lat_man = torch.argmax(lat_pred[k, :]).detach()
-            if not args['lat_only']:
-                lon_man = torch.argmax(lon_pred[k, :]).detach()
+            lon_man = torch.argmax(lon_pred[k, :]).detach()
+            indx = lon_man * args['num_lat_classes'] + lat_man
 
-            if args['use_entry_exit_int']:
-                en_ex = torch.argmax(en_ex_pred[k, :]).detach()
-                indx = lon_man * args['num_lat_classes'] * args['num_en_ex_classes'] + lat_man * args['num_en_ex_classes'] + en_ex
-            else:
-                if args['lat_only']:
-                    indx = lat_man
-                else:
-                    indx = lon_man * args['num_lat_classes'] + lat_man
-
-            # anch_traj = anchor_trajs[lon_man, lat_man]
-            # anch_traj_sampled = anch_traj[0:-1:args['d_s'],:]
-            # pred = (fut_pred[indx][:, k, :]).detach().numpy()
-            # fut_pred_max[:, k, 0:3] = torch.from_numpy(anch_traj_sampled - pred[:,0:3] )
             fut_pred_max[:, k, :] = fut_pred[indx][:, k, :]
+            if args['use_anchors']:
+                fut_pred_wt[:, k, :] = multi_pred(lat_pred[k, :], lon_pred[k, :], fut_pred, k, anchor_traj, args['d_s'])
+
+        if args['use_anchors']:
+            fut_pred_max = anchor_inverse(fut_pred_max, lat_pred, lon_pred, anchor_traj, args['d_s'], multi=False)
+            l2, c2 = maskedMSETest(fut_pred_wt, fut, op_mask)
+            lossVals2 += l2.detach()
+            counts2 += c2.detach()
 
         l, c = maskedMSETest(fut_pred_max, fut, op_mask)
     else:
@@ -128,11 +95,15 @@ for i, data in enumerate(tsDataloader):
     lossVals += l.detach()
     counts += c.detach()
 
-    # print(torch.pow(lossVals / counts, 0.5))
-
+print('regural loss')
 print(torch.pow(lossVals / counts, 0.5))  # Calculate RMSE
+
+print('weighted loss')
+print(torch.pow(lossVals2 / counts2, 0.5))  # Calculate RMSE
+
+
 loss_total = torch.pow(lossVals / counts, 0.5)
-fname = 'outfiles/rmse_from_code_' + str(args['ip_dim']) +'D_intention_4s_latOnly.csv'
+fname = 'outfiles/' + model_basename + '.csv'
 rmse_file = open(fname, 'w')
 np.savetxt(rmse_file, loss_total.cpu())
 
