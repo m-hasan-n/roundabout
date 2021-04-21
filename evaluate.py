@@ -21,8 +21,6 @@ if args['use_intention']:
         model_basename += 'Anchors'
 net_fname = 'trained_models/' + model_basename + '.tar'
 
-net_fname = 'trained_models/round_3D_Intention_timeChange_latlong_anchor.tar'
-
 if (args['use_cuda']):
     net.load_state_dict(torch.load(net_fname), strict=False)
 else:
@@ -33,6 +31,7 @@ tsSet = roundDataset('data/TestSet.mat')
 tsDataloader = DataLoader(tsSet,batch_size=128,shuffle=True,num_workers=8,collate_fn=tsSet.collate_fn)
 anchor_traj = scp.loadmat('data/TrainSet.mat')['anchor_traj_mean']
 
+## Initialize loss variables
 lossVals = torch.zeros(args['out_length'])
 counts = torch.zeros(args['out_length'])
 lossVals2 = torch.zeros(args['out_length'])
@@ -67,9 +66,10 @@ for i, data in enumerate(tsDataloader):
 
         fut_pred, lat_pred, lon_pred = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc)
 
+        # maximum a posteriori probability (MAP) and 'Weighted' estimates
         fut_pred_max = torch.zeros_like(fut_pred[0])
         fut_pred_wt = torch.zeros_like(fut_pred[0])
-
+        
         for k in range(lat_pred.shape[0]):
             lat_man = torch.argmax(lat_pred[k, :]).detach()
             lon_man = torch.argmax(lon_pred[k, :]).detach()
