@@ -100,16 +100,16 @@ MAP_rmse = torch.pow(lossVals / counts, 0.5)
 MAP_horiz = horiz_eval(MAP_rmse, pred_horiz)
 print(MAP_horiz)
 
-print('Weighted RMSE evaluated on a 4s horizon')
-Weighted_rmse = torch.pow(lossVals2 / counts2, 0.5)
-Weighted_horiz = horiz_eval(Weighted_rmse, pred_horiz)
-print(Weighted_horiz)
-
 #Saving to evaluation files
 fname = 'eval_res/' + model_basename + '_MAP.csv'
 rmse_file = open(fname, 'ab')
 np.savetxt(rmse_file, MAP_horiz.cpu())
 rmse_file.close()
+
+print('Weighted RMSE evaluated on a 4s horizon')
+Weighted_rmse = torch.pow(lossVals2 / counts2, 0.5)
+Weighted_horiz = horiz_eval(Weighted_rmse, pred_horiz)
+print(Weighted_horiz)
 
 fname = 'eval_res/' + model_basename + '_WT.csv'
 rmse_file = open(fname, 'ab')
