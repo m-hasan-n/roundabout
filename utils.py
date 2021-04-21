@@ -4,28 +4,32 @@ import scipy.io as scp
 import numpy as np
 import torch
 
-### Dataset class for the rounD dataset
+# Import the model argumnets
+from model_args import args
+
+# Dataset class for the rounD dataset
 class roundDataset(Dataset):
 
-    def __init__(self, mat_file, t_h=50, t_f=100, d_s=4, enc_size=32, ip_dim=3, lat_dim=8, lon_dim=3, goal_dim = 16, en_ex_dim =2, using_anchors=False):
+    def __init__(self, mat_file, t_h=args['t_h'], t_f=args['t_f'], d_s=args['d_s'],
+                 enc_size=args['encoder_size'], ip_dim=args['ip_dim'], lat_dim=args['num_lat_classes'],
+                 lon_dim=args['num_lon_classes'], using_anchors=args['use_anchors']):
+
         self.D = scp.loadmat(mat_file)['traj']
+        self.T = scp.loadmat(mat_file)['tracks']
+        self.A = scp.loadmat(mat_file)['anchor_traj_mean']
 
         self.t_h = t_h  # length of track history
         self.t_f = t_f  # length of predicted trajectory
         self.d_s = d_s  # down sampling rate of all sequences
+
         self.enc_size = enc_size  # size of encoder LSTM
         self.ip_dim = ip_dim
         self.lat_dim = lat_dim
         self.lon_dim = lon_dim
-        self.goal_dim = goal_dim
+        # self.goal_dim = goal_dim
         # self.en_ex_dim = en_ex_dim
+
         self.use_anchors = using_anchors
-        # self.Ta = scp.loadmat(mat_file)['tracks_anchored']
-
-        self.T = scp.loadmat(mat_file)['tracks']
-        # if self.use_anchors:
-        #     self.A  = scp.loadmat(mat_file)['anchor_traj_raw']
-
 
     def __len__(self):
         return len(self.D)
@@ -39,45 +43,31 @@ class roundDataset(Dataset):
         grid = self.D[idx,15:] #14 if no entry_exit_class 15 if there
         neighbors = []
 
+        # Encoding of Lateral and Longitudinal Intention Classes
+        lat_class = self.D[idx, 12] - 1
+        lat_enc = np.zeros([self.lat_dim])
+        lat_enc[int(lat_class)] = 1
+
+        lon_class = self.D[idx, 13] - 1
+        lon_enc = np.zeros([self.lon_dim])
+        lon_enc[int(lon_class)] = 1
+
         # Get track history 'hist' = ndarray, and future track 'fut' = ndarray
         hist = self.getHistory(vehId, t, vehId, dsId)
-        fut = self.getFuture(vehId, t, dsId, get_anch=False)
-        # fut_anch = self.getFuture(vehId, t, dsId, get_anch=True)
+        fut, fut_anchored = self.getFuture(vehId, t, dsId, lat_class, lon_class)
 
         # Get track histories of all neighbours 'neighbors' = [ndarray,[],ndarray,ndarray]
         for i in grid:
             neighbors.append(self.getHistory(i.astype(int), t, vehId, dsId))
 
-        #Encoding of Lateral and Longitudinal Intention Classes
-        lat_enc = np.zeros([self.lat_dim])
-        lat_enc[int(self.D[idx, 12] - 1)] = 1
-
-        lon_enc = np.zeros([self.lon_dim])
-        lon_enc[int(self.D[idx, 13] - 1)] = 1
-
-
-        goal_class = self.D[idx, 11]
-        if goal_class==0:
-            goal_enc = np.empty([self.goal_dim]) # [0, self.goal_dim]
-        else:
-            goal_enc = np.zeros([self.goal_dim])
-            goal_enc[int(goal_class - 1)] = 1
-
-        # en_ex_class = self.D[idx, 14]
-        # en_ex_enc = np.zeros([self.en_ex_dim])
-        # en_ex_enc[int(en_ex_class)] = 1
-
-        return hist, fut, neighbors, lat_enc, lon_enc, dsId, vehId, t, goal_enc#, en_ex_enc, fut_anch
+        return hist, fut, neighbors, lat_enc, lon_enc, dsId, vehId, t, fut_anchored
 
     ## Helper function to get track history
     def getHistory(self, vehId, t, refVehId, dsId):
         if vehId == 0:
             return np.empty([0, self.ip_dim])
         else:
-            if self.use_anchors:
-                veh_tracks = self.Ta
-            else:
-                veh_tracks = self.T
+            veh_tracks = self.T
 
             if veh_tracks.shape[1] <= vehId - 1:
                 return np.empty([0, self.ip_dim])
@@ -92,22 +82,31 @@ class roundDataset(Dataset):
                 enpt = np.argwhere(vehTrack[:, 0] == t).item() + 1
                 hist = vehTrack[stpt:enpt:self.d_s, 1:self.ip_dim + 1] - refPos
 
+                # #anchor the hist of the ego vehicle
+                # if vehId==refVehId:
+                #     anchor_traj = self.H[int(lon_class), int(lat_class)]
+                #     anchor_traj = anchor_traj[0:-1:self.d_s, :]
+                #     hist = anchor_traj[0:len(hist), :] - hist
+
             if len(hist) < self.t_h // self.d_s + 1:
                 return np.empty([0, self.ip_dim])
             return hist
 
     ## Helper function to get track future
-    def getFuture(self, vehId, t, dsId, get_anch):
-        if get_anch:
-            vehTrack = self.Ta[dsId - 1][vehId - 1].transpose()
-        else:
-            vehTrack = self.T[dsId - 1][vehId - 1].transpose()
+    def getFuture(self, vehId, t, dsId, lat_class, lon_class):
 
+        vehTrack = self.T[dsId - 1][vehId - 1].transpose()
         refPos = vehTrack[np.where(vehTrack[:, 0] == t)][0, 1:self.ip_dim + 1]
         stpt = np.argwhere(vehTrack[:, 0] == t).item() + self.d_s
         enpt = np.minimum(len(vehTrack), np.argwhere(vehTrack[:, 0] == t).item() + self.t_f + 1)
         fut = vehTrack[stpt:enpt:self.d_s, 1:self.ip_dim + 1] - refPos
-        return fut
+
+        anchor_traj = self.A[int(lon_class), int(lat_class)]
+        anchor_traj = anchor_traj[0:-1:self.d_s, :]
+
+        fut_anchored = anchor_traj[0:len(fut), :] - fut
+
+        return fut, fut_anchored
 
     ## Collate function for dataloader
     def collate_fn(self, samples):
@@ -115,13 +114,12 @@ class roundDataset(Dataset):
         # Initialize neighbors and neighbors length batches:
         # nbr_batch_size = 0
         nbr_list_len = torch.zeros(len(samples),1)
-        for sample_id , (_, _, nbrs, _, _, _, _, _,_) in enumerate(samples):
+        for sample_id , (_, _, nbrs, _, _, _, _, _, _) in enumerate(samples):
             nbr_list_len[sample_id] = sum([len(nbrs[i]) != 0 for i in range(len(nbrs))])
 
         nbr_batch_size = int((sum(nbr_list_len)).item())
         maxlen = self.t_h // self.d_s + 1
         nbrs_batch = torch.zeros(maxlen, nbr_batch_size, self.ip_dim)
-
 
         # Initialize history, history lengths, future, output mask, lateral maneuver and longitudinal maneuver batches:
         hist_batch = torch.zeros(maxlen, len(samples), self.ip_dim)
@@ -132,19 +130,16 @@ class roundDataset(Dataset):
         frame_ids_batch = torch.zeros(len(samples), 1)
         lat_enc_batch = torch.zeros(len(samples), self.lat_dim)
         lon_enc_batch = torch.zeros(len(samples), self.lon_dim)
-        goal_enc_batch = torch.zeros(len(samples), self.goal_dim)
-        # en_ex_enc_batch = torch.zeros(len(samples), self.en_ex_dim)
-        # fut_anch_batch = torch.zeros(self.t_f // self.d_s, len(samples), self.ip_dim)
+        fut_anchored_batch = torch.zeros(self.t_f // self.d_s, len(samples), self.ip_dim)
 
         count = 0
-        # , en_ex_enc, fut_anch
-        for sampleId, (hist, fut, nbrs,lat_enc, lon_enc, ds_ids, vehicle_ids, frame_ids, goal_enc) in enumerate(samples):
+        for sampleId, (hist, fut, nbrs,lat_enc, lon_enc, ds_ids, vehicle_ids, frame_ids, fut_anchored) in enumerate(samples):
 
             # Set up history, future, lateral maneuver and longitudinal maneuver batches:
             for k in range(self.ip_dim):
                 hist_batch[0:len(hist), sampleId, k] = torch.from_numpy(hist[:, k])
                 fut_batch[0:len(fut), sampleId, k] = torch.from_numpy(fut[:, k])
-                # fut_anch_batch[0:len(fut), sampleId, k] = torch.from_numpy(fut_anch[:, k])
+                fut_anchored_batch[0:len(fut), sampleId, k] = torch.from_numpy(fut_anchored[:, k])
 
             op_mask_batch[0:len(fut), sampleId, :] = 1
             ds_ids_batch[sampleId, :] = torch.tensor(ds_ids.astype(np.float64))
@@ -152,8 +147,6 @@ class roundDataset(Dataset):
             frame_ids_batch[sampleId, :] = torch.tensor(frame_ids.astype(int).astype(np.float64))
             lat_enc_batch[sampleId, :] = torch.from_numpy(lat_enc)
             lon_enc_batch[sampleId, :] = torch.from_numpy(lon_enc)
-            goal_enc_batch[sampleId, :] = torch.from_numpy(goal_enc)
-            # en_ex_enc_batch[sampleId, :] = torch.from_numpy(en_ex_enc)
 
             # Set up neighbor, neighbor sequence length, and mask batches:
             for id, nbr in enumerate(nbrs):
@@ -162,9 +155,54 @@ class roundDataset(Dataset):
                         nbrs_batch[0:len(nbr), count, k] = torch.from_numpy(nbr[:, k])
                     count += 1
 
-        return hist_batch, nbrs_batch, nbr_list_len , fut_batch, lat_enc_batch, lon_enc_batch, op_mask_batch, ds_ids_batch, vehicle_ids_batch, frame_ids_batch, goal_enc_batch#, en_ex_enc_batch, fut_anch_batch
+        return hist_batch, nbrs_batch, nbr_list_len , fut_batch, lat_enc_batch, \
+               lon_enc_batch, op_mask_batch, ds_ids_batch, vehicle_ids_batch, frame_ids_batch, fut_anchored_batch
 
     # ________________________________________________________________________________________________________________________________________
+
+
+
+def anchor_inverse(fut_pred, lat_pred, lon_pred, anchor_traj, d_s, multi):
+    if multi:
+        fut_adjusted=[]
+        for l in range(len(fut_pred)):
+            fut_adjusted.append(anchor_inverse_core(fut_pred[l], lat_pred, lon_pred, anchor_traj, d_s))
+    else:
+        fut_adjusted = anchor_inverse_core(fut_pred, lat_pred, lon_pred, anchor_traj, d_s)
+
+    return fut_adjusted
+
+def multi_pred(lat_pred, lon_pred, fut_pred, ind, anchor_traj, d_s):
+    fut_wt = torch.zeros_like(fut_pred[0][:, 0, :])
+    num_lat = lat_pred.shape[0]
+
+    for k in range(lon_pred.shape[0]):
+        for l in range(num_lat):
+            indx = k * num_lat + l
+            wt = lon_pred[k]*lat_pred[l]
+            fut_inst = fut_pred[indx][:, ind, :]
+
+            anchor_tr = anchor_traj[k, l]
+            anchor_tr = torch.from_numpy(anchor_tr[0:-1:d_s, :])
+            anchor_tr = anchor_tr.cuda()
+
+            fut_inst[:, 0:3] = anchor_tr - fut_inst[:, 0:3]
+
+            fut_wt = fut_wt + wt * fut_inst
+
+    return fut_wt
+
+
+def anchor_inverse_core(fut_pred, lat_pred, lon_pred, anchor_traj, d_s):
+    fut_adjusted = fut_pred
+    for k in range(lat_pred.shape[0]):
+        lat_class = torch.argmax(lat_pred[k, :]).detach()
+        lon_class = torch.argmax(lon_pred[k, :]).detach()
+        anchor_tr = anchor_traj[lon_class, lat_class]
+        anchor_tr = torch.from_numpy(anchor_tr[0:-1:d_s, :])
+        anchor_tr = anchor_tr.cuda()
+        fut_adjusted[:, k, 0:3] = anchor_tr - fut_pred[:, k, 0:3]
+    return fut_adjusted
 
 
 ## Custom activation for output layer
