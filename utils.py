@@ -689,3 +689,24 @@ def logsumexp(inputs, dim=None, keepdim=False):
     if not keepdim:
         outputs = outputs.squeeze(dim)
     return outputs
+
+
+def horiz_eval(loss_total, n_horiz):
+    loss_total = loss_total.cpu().numpy()
+    avg_res = np.zeros(n_horiz)
+    n_all = loss_total.shape[0]
+    n_frames = n_all//n_horiz
+    for i in range(n_horiz):
+        if i==0:
+            st_id = 0
+        else:
+            st_id = n_frames*i
+
+        if i == n_horiz-1:
+            en_id = n_all-1
+        else:
+            en_id = n_frames*i + n_frames - 1
+
+        avg_res[i] = np.mean(loss_total[st_id:en_id+1])
+
+    return avg_res
