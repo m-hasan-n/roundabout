@@ -1,8 +1,7 @@
 from __future__ import print_function
 import torch
 from model import roundNet
-from utils import roundDataset, maskedNLL,maskedMSE,maskedNLLTest,maskedNLLTest_Int,\
-    maskedNLLTest_Int_ext, maskedNLLTest_LatInt, anchor_inverse
+from utils import roundDataset, maskedNLL,maskedMSE,maskedNLLTest,maskedNLLTest_Int, anchor_inverse
 from torch.utils.data import DataLoader
 import time
 import math
@@ -222,9 +221,9 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
 # Saving the trained model
 model_basename = 'round_' + str(args['ip_dim']) + 'D_'
 if args['use_intention']:
-    model_basename += 'Int_'
+    model_basename += 'Intention_'
     if args['use_anchors']:
-        model_basename += 'Anch'
+        model_basename += 'Anchors'
 
 model_fname = 'trained_models/' + model_basename + '.tar'
 torch.save(net.state_dict(), model_fname)
