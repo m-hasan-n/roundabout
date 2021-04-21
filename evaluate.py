@@ -1,7 +1,7 @@
 from __future__ import print_function
 import torch
 from model import roundNet
-from utils import roundDataset, maskedMSETest, anchor_inverse, multi_pred
+from utils import roundDataset, maskedMSETest, anchor_inverse, multi_pred, horiz_eval
 from torch.utils.data import DataLoader
 import numpy as np
 import scipy.io as scp
@@ -69,7 +69,7 @@ for i, data in enumerate(tsDataloader):
         # maximum a posteriori probability (MAP) and 'Weighted' estimates
         fut_pred_max = torch.zeros_like(fut_pred[0])
         fut_pred_wt = torch.zeros_like(fut_pred[0])
-        
+
         for k in range(lat_pred.shape[0]):
             lat_man = torch.argmax(lat_pred[k, :]).detach()
             lon_man = torch.argmax(lon_pred[k, :]).detach()
@@ -93,16 +93,25 @@ for i, data in enumerate(tsDataloader):
     lossVals += l.detach()
     counts += c.detach()
 
-print('regural loss')
-print(torch.pow(lossVals / counts, 0.5))  # Calculate RMSE
+# Calculate RMSE Loss evaluated on a 4s horizon
+pred_horiz = 4
+print('MAP RMSE evaluated on a 4s horizon')
+MAP_rmse = torch.pow(lossVals / counts, 0.5)
+MAP_horiz = horiz_eval(MAP_rmse, pred_horiz)
+print(MAP_horiz)
 
-print('weighted loss')
-print(torch.pow(lossVals2 / counts2, 0.5))  # Calculate RMSE
+print('Weighted RMSE evaluated on a 4s horizon')
+Weighted_rmse = torch.pow(lossVals2 / counts2, 0.5)
+Weighted_horiz = horiz_eval(Weighted_rmse, pred_horiz)
+print(Weighted_horiz)
 
+#Saving to evaluation files
+fname = 'eval_res/' + model_basename + '_MAP.csv'
+rmse_file = open(fname, 'ab')
+np.savetxt(rmse_file, MAP_horiz.cpu())
+rmse_file.close()
 
-loss_total = torch.pow(lossVals / counts, 0.5)
-fname = 'outfiles/' + model_basename + '.csv'
-rmse_file = open(fname, 'w')
-np.savetxt(rmse_file, loss_total.cpu())
-
-
+fname = 'eval_res/' + model_basename + '_WT.csv'
+rmse_file = open(fname, 'ab')
+np.savetxt(rmse_file, Weighted_horiz.cpu())
+rmse_file.close()
