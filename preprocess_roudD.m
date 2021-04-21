@@ -22,12 +22,10 @@ dist_factor = 1;
 %History look-back of 2 seconds (2*25 fps = 50)
 hist_size = 50;
 
-%Future horizon of 4 seconds (4*25 fps = 100)
-% fut_size = 100;
 
 %% Load the dataset csv files, amend it by the lane IDs, and save into mat files
 
-% save_dataset_mat(dataset_dir);
+save_dataset_mat(dataset_dir);
 
 %% Fields:
 % 1 recordingId 
@@ -273,26 +271,38 @@ end
 trajTs_full = trajTs;
 trajTs = trajTs(find(indsTs),:);
 
-%% Save mat files:
+%% Amend the dataset with the anchor trajectories
 
+[tr_anchors, val_anchors, ts_anchors, anchor_traj_raw] = ....
+    trj_anchors_amend_dataset(trajTr,tracksTr,trajTr_full,...
+        trajVal,tracksVal,trajVal_full,...
+            trajTs, tracksTs,trajTs_full);
+
+%% Save mat files:
 traj = trajTr;
 tracks = tracksTr;
 traj_full = trajTr_full;
-save('TrainSet','traj','tracks','traj_full');
+tracks_anchored = tr_anchors;
+save('TrainSet','traj','tracks','traj_full','tracks_anchored','anchor_traj_raw');
 
 traj = trajVal;
 tracks = tracksVal;
 traj_full = trajVal_full;
-save('ValSet','traj','tracks','traj_full');
+tracks_anchored = val_anchors;
+save('ValSet','traj','tracks','traj_full','tracks_anchored','anchor_traj_raw');
 
 traj = trajTs;
 tracks = tracksTs;
 traj_full = trajTs_full;
-save('TestSet','traj','tracks','traj_full');
+tracks_anchored = ts_anchors;
+save('TestSet','traj','tracks','traj_full','tracks_anchored','anchor_traj_raw');
 
 end
 
-
+%%  Helper Functions
+%
+%
+%
 %% Future short-term lateral intention is defined by intended the lane
 function [lat_int , lat_goal ]= find_lat_int(next_lane)
 
@@ -387,7 +397,7 @@ nbr_vehicles = same_frame_data(considered_lanes,2);
 nbr_vehicles = setdiff(nbr_vehicles,vehId);
 end
 
-%load the datset csv files and save them into mat
+%% load the datset csv files and save them into mat
 function save_dataset_mat(dataset_dir)
 
 % Load roundabout and lane boundaries
@@ -455,7 +465,7 @@ end
 end
 
 
-%Refine the dataset by excluding non-relevant data
+%% Refine the dataset by excluding non-relevant data
 function refined_data = refine_rounD( record_id,old_data,dist_factor)
 %% Fields to refine
 % 1 recordingId       2 trackId       3 frame     4 trackLifetime
@@ -496,8 +506,7 @@ refined_data = refine_lanes(record_id, refined_data);
 end
 
 
-
-%refine lane IDs
+%% refine lane IDs
 function refined_data = refine_lanes(record_id, refined_data)
 
     
@@ -712,4 +721,153 @@ for ii = 1 : length(delete_list)
     inds = refined_data(:,2)==delete_list(ii);
     refined_data(inds,:)=[];
 end
+end
+
+%% anchor trajectories
+function [tr_anchors, val_anchors, ts_anchors, anchor_traj_raw] = ...
+trj_anchors_amend_dataset(trajTr,tracksTr,trajTr_full,...
+    trajVal,tracksVal,trajVal_full,...
+    trajTs, tracksTs,trajTs_full)
+
+load('anchor_trajectories','anchor_traj_raw')
+
+tr_anchors = find_anchor_tracks(trajTr,trajTr_full,anchor_traj_raw,size(tracksTr));
+
+val_anchors = find_anchor_tracks(trajVal,trajVal_full,anchor_traj_raw,size(tracksVal));
+
+ts_anchors = find_anchor_tracks(trajTs,trajTs_full,anchor_traj_raw,size(tracksTs));
+
+end
+
+function tracks_anchored = find_anchor_tracks(traj,traj_full,anchor_traj_raw,tracks_size)
+
+veh_ind = 2;
+lat_class_ind = 13;
+lon_class_ind = 14;
+N_records = 22;
+
+tracks_anchored = cell(tracks_size);
+
+for k = 1:N_records
+    trajSet = traj_full(traj_full(:,1)==k,:);
+    trajSet_r = traj(traj(:,1)==k,:);
+    vehIds = unique(trajSet_r(:,veh_ind));
+    for v = 1:length(vehIds)
+        veh_traj = trajSet(trajSet(:,veh_ind) == vehIds(v),:);
+%         veh_traj = tracks{k,v}';
+        veh_traj_new = veh_traj;
+       
+        lat_int = veh_traj(:,lat_class_ind);
+        lon_int = veh_traj(:,lon_class_ind);
+        
+        lat_change_times = find(diff(lat_int));
+        lon_change_times = find(diff(lon_int));
+        change_times = union(lat_change_times,lon_change_times);
+        if size(change_times,1)==1
+            change_times = change_times';
+        end
+        change_times = [change_times;size(veh_traj,1)];
+        
+        for ii = 1 : length(change_times)
+            
+            if ii==1
+                st =1;
+            else
+                st = change_times(ii-1)+1;
+            end
+            
+            en = change_times(ii);
+            
+            
+            assert(sum(diff(lat_int(st:en))) ==0);
+            assert(sum(diff(lon_int(st:en))) ==0);
+            
+            trj_seg = veh_traj(st:en,4:6);
+            lat_id = veh_traj(st:en,lat_class_ind);
+            lon_id = veh_traj(st:en,lon_class_ind);
+            
+            if lat_id(1)==0 || lon_id(1)==0
+                continue
+            else
+                trj_anch = anchor_traj_raw{lon_id(1) , lat_id(1)};
+            end
+            
+            %deviation from the anchor trajectory
+            trj_anch_dev = find_anchor_seg(trj_anch,trj_seg);
+            veh_traj_new(st:en,4:6) = trj_anch_dev;
+        end
+        
+        tracks_anchored{k, vehIds(v)} = veh_traj_new(:,3:6)';
+        
+    end
+
+    
+end
+
+end
+
+function trj_anch_dev = find_anchor_seg(trj_anch,trj_seg)
+
+ref_pos = trj_anch(1,:) - trj_seg(1,:);
+
+%Find the segemnt of the anchor trajectory that is most similar to trj_seg
+st = trj_seg(1,:);
+en = trj_seg(end,:);
+st_dist = sum((trj_anch-st).^2,2);
+en_dist = sum((trj_anch-en).^2,2);
+[~, st_id] = min(st_dist);
+[~, en_id] = min(en_dist);
+
+if (st_id==en_id) && (size(trj_seg,1)>1)
+    [~,is] = sort(en_dist);
+    en_id = is(2);
+end
+
+%flip if required
+if st_id<=en_id
+    trj_anch_seg = trj_anch(st_id:en_id,:);
+else
+   trj_anch_seg = trj_anch(en_id:st_id,:);
+   trj_anch_seg = flip(trj_anch_seg);
+end 
+
+
+n_trj_seg = size(trj_seg,1);
+n_anch_seg =   size(trj_anch_seg,1);
+if n_trj_seg > n_anch_seg
+    %interpolate to make both segments at the same size 
+    %(increase the anchor segment no. of timestamps)
+    inds = round(linspace(1,n_trj_seg,n_anch_seg));
+    inds_q = 1:n_trj_seg;
+    Xq = interp1(inds,trj_anch_seg(:,1),inds_q);
+    Yq = interp1(inds,trj_anch_seg(:,2),inds_q);
+    Hq = interp1(inds,trj_anch_seg(:,3),inds_q);
+    trj_anch_seg_interp = [Xq' Yq' Hq'];
+    
+    %deviation from the anchor trajectory
+    trj_anch_dev = trj_anch_seg_interp - trj_seg;
+    
+elseif n_trj_seg < n_anch_seg
+    inds = round(linspace(1,n_anch_seg,n_trj_seg));
+    trj_anch_seg_sampled= trj_anch_seg(inds,:);
+    %deviation from the anchor trajectory
+    trj_anch_dev = trj_anch_seg_sampled - trj_seg;
+    
+else
+    trj_anch_dev = trj_anch_seg - trj_seg;
+end
+
+trj_anch_dev = trj_anch_dev + ref_pos;
+
+plot(trj_anch(:,1),trj_anch(:,2),'r')
+hold on
+plot(trj_seg(:,1),trj_seg(:,2),'g')
+hold on
+plot(trj_anch_seg(:,1),trj_anch_seg(:,2),'b')
+
+% if n_trj_seg > n_anch_seg
+%     plot(trj_anch_seg_interp(:,1),trj_anch_seg_interp(:,2),'m--')
+% elseif n_trj_seg < n_anch_seg
+%     plot(trj_anch_seg_sampled(:,1),trj_anch_seg_sampled(:,2),'m--')
+% end
 end
