@@ -1,4 +1,4 @@
-# Maneuver-based Anchor Trajectory Hypotheses
+# Maneuver-based Anchor Trajectory Hypotheses at Roundabouts
 We extend existing recurrent encoder-decoder models to be advantageously
 combined with anchor trajectories to predict vehicle behaviors
 on a roundabout. Drivers’ intentions are encoded by a set
