@@ -1,16 +1,8 @@
 from __future__ import division
 import torch
-from torch.autograd import Variable
 import torch.nn as nn
 from utils import outputActivation
 
-
-def make_mlp_reduced(dim_in, dim_out, batch_norm):
-    if batch_norm:
-        layers = [nn.Linear(dim_in, dim_out), nn.BatchNorm1d(dim_out), nn.ReLU()]
-    else:
-        layers = [nn.Linear(dim_in, dim_out), nn.ReLU()]
-    return nn.Sequential(*layers)
 
 class roundNet(nn.Module):
 
@@ -60,7 +52,7 @@ class roundNet(nn.Module):
         self.soc_embedding_size = self.bottleneck_dim
         self.mlp_pre_dim = 2 * self.encoder_size
         self.rel_pos_embedding = nn.Linear(self.ip_dim, self.encoder_size)
-        self.mlp_pre_pool = make_mlp_reduced(self.mlp_pre_dim, self.bottleneck_dim, self.batch_norm)
+        self.mlp_pre_pool = self.make_mlp(self.mlp_pre_dim, self.bottleneck_dim, self.batch_norm)
 
 
         # Output layers:
@@ -105,34 +97,8 @@ class roundNet(nn.Module):
         _, (nbrs_enc, _) = self.enc_lstm(self.leaky_relu(self.ip_emb(nbrs)))
         nbrs_enc = nbrs_enc.view(nbrs_enc.shape[1], nbrs_enc.shape[2])
 
-        ## Pooling the Nbrs hist
-        soc_enc = torch.zeros(nbr_list_len.shape[0], self.bottleneck_dim).float()
-
-        if self.use_cuda:
-            soc_enc = soc_enc.cuda()
-        cntr = 0
-        for ind in range(nbr_list_len.shape[0]):
-            no_nbrs = int(nbr_list_len[ind].item())
-            if no_nbrs > 0:
-                curr_nbr_pos = nbrs[:, cntr:cntr + no_nbrs, :]
-                curr_nbr_enc = nbrs_enc[cntr:cntr + no_nbrs, :]
-                cntr += no_nbrs
-
-                end_nbr_pose = curr_nbr_pos[-1]
-                rel_pos_embedding = self.rel_pos_embedding(end_nbr_pose)
-                mlp_h_input = torch.cat([rel_pos_embedding, curr_nbr_enc], dim=1)
-
-                # if only 1 neighbor, BatchNormalization will not work
-                # So calling model.eval() before feeding the data will change
-                # the behavior of the BatchNorm layer to use the running estimates
-                # instead of calculating them
-                if mlp_h_input.shape[0] == 1 & self.batch_norm:
-                    self.mlp_pre_pool.eval()
-
-                curr_pool_h = self.mlp_pre_pool(mlp_h_input)
-
-                curr_pool_h = curr_pool_h.max(0)[0]
-                soc_enc[ind] = curr_pool_h
+        ## Pooling Module
+        soc_enc = self.pooling(nbr_list_len, nbrs, nbrs_enc)
 
         ## Concatenate encodings:
         enc = torch.cat((soc_enc, hist_enc), 1)
@@ -163,7 +129,7 @@ class roundNet(nn.Module):
             fut_pred = self.decode(enc)
             return fut_pred
 
-
+    # Decoder Module
     def decode(self, enc):
         enc = enc.repeat(self.out_length, 1, 1)
         h_dec, _ = self.dec_lstm(enc)
@@ -173,5 +139,42 @@ class roundNet(nn.Module):
         fut_pred = outputActivation(fut_pred)
         return fut_pred
 
+    # MLP
+    def make_mlp(self, dim_in, dim_out, batch_norm):
+        if batch_norm:
+            layers = [nn.Linear(dim_in, dim_out), nn.BatchNorm1d(dim_out), nn.ReLU()]
+        else:
+            layers = [nn.Linear(dim_in, dim_out), nn.ReLU()]
+        return nn.Sequential(*layers)
 
+    # Pooling Module
+    def pooling(self, nbr_list_len, nbrs, nbrs_enc):
+        soc_enc = torch.zeros(nbr_list_len.shape[0], self.bottleneck_dim).float()
 
+        if self.use_cuda:
+            soc_enc = soc_enc.cuda()
+        cntr = 0
+        for ind in range(nbr_list_len.shape[0]):
+            no_nbrs = int(nbr_list_len[ind].item())
+            if no_nbrs > 0:
+                curr_nbr_pos = nbrs[:, cntr:cntr + no_nbrs, :]
+                curr_nbr_enc = nbrs_enc[cntr:cntr + no_nbrs, :]
+                cntr += no_nbrs
+
+                end_nbr_pose = curr_nbr_pos[-1]
+                rel_pos_embedding = self.rel_pos_embedding(end_nbr_pose)
+                mlp_h_input = torch.cat([rel_pos_embedding, curr_nbr_enc], dim=1)
+
+                # if only 1 neighbor, BatchNormalization will not work
+                # So calling model.eval() before feeding the data will change
+                # the behavior of the BatchNorm layer to use the running estimates
+                # instead of calculating them
+                if mlp_h_input.shape[0] == 1 & self.batch_norm:
+                    self.mlp_pre_pool.eval()
+
+                curr_pool_h = self.mlp_pre_pool(mlp_h_input)
+
+                curr_pool_h = curr_pool_h.max(0)[0]
+                soc_enc[ind] = curr_pool_h
+
+        return soc_enc
