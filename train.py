@@ -51,92 +51,92 @@ for epoch_num in range(pretrainEpochs+trainEpochs):
         print('Training with NLL loss')
 
 
-    # ## Train:_________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________
-    # net.train_flag = True
-    #
-    # # Variables to track training performance:
-    # avg_tr_loss = 0
-    # avg_tr_time = 0
-    # avg_lat_acc = 0
-    # avg_lon_acc = 0
-    #
-    # for i, data in enumerate(trDataloader):
-    #     st_time = time.time()
-    #     hist, nbrs, nbr_list_len, fut, lat_enc, lon_enc, op_mask, ds_ids,\
-    #     vehicle_ids, frame_ids, fut_anchred = data
-    #
-    #     if args['use_cuda']:
-    #         hist = hist.cuda()
-    #         nbrs = nbrs.cuda()
-    #         nbr_list_len = nbr_list_len.cuda()
-    #         fut = fut.cuda()
-    #         op_mask = op_mask.cuda()
-    #         ds_ids = ds_ids.cuda()
-    #         vehicle_ids = vehicle_ids.cuda()
-    #         frame_ids = frame_ids.cuda()
-    #         lat_enc = lat_enc.cuda()
-    #         lon_enc = lon_enc.cuda()
-    #         fut_anchred = fut_anchred.cuda()
-    #
-    #     if args['use_intention']:
-    #
-    #         if args['use_anchors']:
-    #             fut_groundtruth = fut_anchred
-    #         else:
-    #             fut_groundtruth = fut
-    #
-    #         # Pre-train with MSE loss to speed up training
-    #         if epoch_num < pretrainEpochs:
-    #             fut_pred, _, _ = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc)
-    #             l = maskedMSE(fut_pred, fut_groundtruth, op_mask)
-    #         else:
-    #             fut_pred, lat_pred, lon_pred = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc)
-    #             l = maskedNLL(fut_pred, fut_groundtruth, op_mask) + crossEnt(lat_pred, lat_enc) + \
-    #                     crossEnt(lon_pred, lon_enc)
-    #
-    #             avg_lat_acc += (torch.sum(torch.max(lat_pred.data, 1)[1] == torch.max(lat_enc.data, 1)[1])).item() / \
-    #                            lat_enc.size()[0]
-    #             avg_lon_acc += (torch.sum(torch.max(lon_pred.data, 1)[1] == torch.max(lon_enc.data, 1)[1])).item() / \
-    #                                lon_enc.size()[0]
-    #
-    #     else:
-    #         # Forward pass
-    #         fut_pred = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc)
-    #
-    #         # Pre-train with MSE loss to speed up training
-    #         if epoch_num < pretrainEpochs:
-    #             l = maskedMSE(fut_pred, fut, op_mask)
-    #         else:
-    #             l = maskedNLL(fut_pred, fut, op_mask)
-    #
-    #
-    #     # Backprop and update weights
-    #     optimizer.zero_grad()
-    #     l.backward()
-    #     a = torch.nn.utils.clip_grad_norm_(net.parameters(), 10)
-    #     optimizer.step()
-    #
-    #     # Track average train loss and average train time:
-    #     batch_time = time.time() - st_time
-    #     avg_tr_loss += l.item()
-    #     avg_tr_time += batch_time
-    #
-    #     if i % 100 == 99:
-    #         eta = avg_tr_time / 100 * (len(trSet) / batch_size - i)
-    #
-    #         print("Epoch no:", epoch_num + 1,
-    #               "| Epoch progress(%):", format(i / (len(trSet) / batch_size) * 100, '0.2f'),
-    #               "| Avg train loss:", format(avg_tr_loss / 100, '0.4f'),
-    #               "| Acc:", format(avg_lat_acc, '0.4f'), format(avg_lon_acc, '0.4f'),
-    #               "| Validation loss prev epoch", format(prev_val_loss, '0.4f'),
-    #               "| ETA(s):", int(eta))
-    #
-    #         train_loss.append(avg_tr_loss / 100)
-    #         avg_tr_loss = 0
-    #         avg_lat_acc = 0
-    #         avg_lon_acc = 0
-    #         avg_tr_time = 0
-    # # _________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________
+    ## Train:_________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________
+    net.train_flag = True
+
+    # Variables to track training performance:
+    avg_tr_loss = 0
+    avg_tr_time = 0
+    avg_lat_acc = 0
+    avg_lon_acc = 0
+
+    for i, data in enumerate(trDataloader):
+        st_time = time.time()
+        hist, nbrs, nbr_list_len, fut, lat_enc, lon_enc, op_mask, ds_ids,\
+        vehicle_ids, frame_ids, fut_anchred = data
+
+        if args['use_cuda']:
+            hist = hist.cuda()
+            nbrs = nbrs.cuda()
+            nbr_list_len = nbr_list_len.cuda()
+            fut = fut.cuda()
+            op_mask = op_mask.cuda()
+            ds_ids = ds_ids.cuda()
+            vehicle_ids = vehicle_ids.cuda()
+            frame_ids = frame_ids.cuda()
+            lat_enc = lat_enc.cuda()
+            lon_enc = lon_enc.cuda()
+            fut_anchred = fut_anchred.cuda()
+
+        if args['use_intention']:
+
+            if args['use_anchors']:
+                fut_groundtruth = fut_anchred
+            else:
+                fut_groundtruth = fut
+
+            # Pre-train with MSE loss to speed up training
+            if epoch_num < pretrainEpochs:
+                fut_pred, _, _ = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc)
+                l = maskedMSE(fut_pred, fut_groundtruth, op_mask)
+            else:
+                fut_pred, lat_pred, lon_pred = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc)
+                l = maskedNLL(fut_pred, fut_groundtruth, op_mask) + crossEnt(lat_pred, lat_enc) + \
+                        crossEnt(lon_pred, lon_enc)
+
+                avg_lat_acc += (torch.sum(torch.max(lat_pred.data, 1)[1] == torch.max(lat_enc.data, 1)[1])).item() / \
+                               lat_enc.size()[0]
+                avg_lon_acc += (torch.sum(torch.max(lon_pred.data, 1)[1] == torch.max(lon_enc.data, 1)[1])).item() / \
+                                   lon_enc.size()[0]
+
+        else:
+            # Forward pass
+            fut_pred = net(hist, nbrs, nbr_list_len, lat_enc, lon_enc)
+
+            # Pre-train with MSE loss to speed up training
+            if epoch_num < pretrainEpochs:
+                l = maskedMSE(fut_pred, fut, op_mask)
+            else:
+                l = maskedNLL(fut_pred, fut, op_mask)
+
+
+        # Backprop and update weights
+        optimizer.zero_grad()
+        l.backward()
+        a = torch.nn.utils.clip_grad_norm_(net.parameters(), 10)
+        optimizer.step()
+
+        # Track average train loss and average train time:
+        batch_time = time.time() - st_time
+        avg_tr_loss += l.item()
+        avg_tr_time += batch_time
+
+        if i % 100 == 99:
+            eta = avg_tr_time / 100 * (len(trSet) / batch_size - i)
+
+            print("Epoch no:", epoch_num + 1,
+                  "| Epoch progress(%):", format(i / (len(trSet) / batch_size) * 100, '0.2f'),
+                  "| Avg train loss:", format(avg_tr_loss / 100, '0.4f'),
+                  "| Acc:", format(avg_lat_acc, '0.4f'), format(avg_lon_acc, '0.4f'),
+                  "| Validation loss prev epoch", format(prev_val_loss, '0.4f'),
+                  "| ETA(s):", int(eta))
+
+            train_loss.append(avg_tr_loss / 100)
+            avg_tr_loss = 0
+            avg_lat_acc = 0
+            avg_lon_acc = 0
+            avg_tr_time = 0
+    # _________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________
 
     # Validate:______________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________
     net.train_flag = False
