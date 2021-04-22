@@ -32,17 +32,17 @@ tsDataloader = DataLoader(tsSet,batch_size=128,shuffle=True,num_workers=8,collat
 anchor_traj = scp.loadmat('data/TrainSet.mat')['anchor_traj_mean']
 
 ## Initialize loss variables
-lossVals = torch.zeros(args['out_length'])
-counts = torch.zeros(args['out_length'])
-lossVals2 = torch.zeros(args['out_length'])
-counts2 = torch.zeros(args['out_length'])
+lossVals_map = torch.zeros(args['out_length'])
+counts_map = torch.zeros(args['out_length'])
+lossVals_wt = torch.zeros(args['out_length'])
+counts_wt = torch.zeros(args['out_length'])
 
 if args['use_cuda']:
     net = net.cuda()
-    lossVals = lossVals.cuda()
-    counts = counts.cuda()
-    lossVals2 = lossVals2.cuda()
-    counts2 = counts2.cuda()
+    lossVals_map = lossVals_map.cuda()
+    counts_map = counts_map.cuda()
+    lossVals_wt = lossVals_wt.cuda()
+    counts_wt = counts_wt.cuda()
 
 for i, data in enumerate(tsDataloader):
     hist, nbrs, nbr_list_len, fut, lat_enc, lon_enc, op_mask, \
@@ -82,21 +82,21 @@ for i, data in enumerate(tsDataloader):
         if args['use_anchors']:
             fut_pred_max = anchor_inverse(fut_pred_max, lat_pred, lon_pred, anchor_traj, args['d_s'], multi=False)
             l2, c2 = maskedMSETest(fut_pred_wt, fut, op_mask)
-            lossVals2 += l2.detach()
-            counts2 += c2.detach()
+            lossVals_wt += l2.detach()
+            counts_wt += c2.detach()
 
         l, c = maskedMSETest(fut_pred_max, fut, op_mask)
     else:
         fut_pred = net(hist, nbrs, nbr_list_len)
         l, c = maskedMSETest(fut_pred, fut, op_mask)
 
-    lossVals += l.detach()
-    counts += c.detach()
+    lossVals_map += l.detach()
+    counts_map += c.detach()
 
 # Calculate RMSE Loss evaluated on a 4s horizon
 pred_horiz = 4
 print('MAP RMSE evaluated on a 4s horizon')
-MAP_rmse = torch.pow(lossVals / counts, 0.5)
+MAP_rmse = torch.pow(lossVals_map / counts_map, 0.5)
 MAP_horiz = horiz_eval(MAP_rmse, pred_horiz)
 print(MAP_horiz)
 
@@ -107,7 +107,7 @@ np.savetxt(rmse_file, MAP_horiz.cpu())
 rmse_file.close()
 
 print('Weighted RMSE evaluated on a 4s horizon')
-Weighted_rmse = torch.pow(lossVals2 / counts2, 0.5)
+Weighted_rmse = torch.pow(lossVals_wt / counts_wt, 0.5)
 Weighted_horiz = horiz_eval(Weighted_rmse, pred_horiz)
 print(Weighted_horiz)
 
