@@ -11,7 +11,7 @@ on the maneuver-specific anchors. We evaluate our model using
 the public RounD dataset.
 
 #
-![model image](roundabout_model_2.png "Model overview")
+![model image](roundabout_model.png "Model overview")
 
 ## RounD Dataset Pre-processing
 The [RounD Dataset](https://www.round-dataset.com/#download) is a new dataset of naturalistic
