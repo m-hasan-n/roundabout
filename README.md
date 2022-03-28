@@ -48,7 +48,7 @@ which will load and test the trained model defined by the selected model argumen
 ## Citation
 If you find this code useful for your research, please cite [our work](https://arxiv.org/pdf/2104.11180.pdf):
 
-* Mohamed Hasan, Evangelos Paschalidis, Albert Solernou, He Wang, Gustav Markkula and Richard Romano, "Maneuver-based Anchor Trajectory Hypotheses at Roundabouts", under review IROS 2021.
+* Mohamed Hasan, Evangelos Paschalidis, Albert Solernou, He Wang, Gustav Markkula and Richard Romano, "Maneuver-based Anchor Trajectory Hypotheses at Roundabouts", preprint 2021.
 
 ## License
 This project is licensed under the MIT License - see the 
