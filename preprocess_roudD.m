@@ -303,6 +303,53 @@ end
 %
 %
 %
+
+%distance_to_roundabout function computes the distance between the vehicle at any timestep
+%and the conflict area of the roundabout
+function dist_round = distance_to_roundabout(veh_traj, lane_ids)
+
+%Init with zeros: if the vehicle is inside the roundabout conflict area, 
+%then dist_round = 0, same as the initialized value
+dist_round = zeros(size(veh_traj,1), 1);
+
+%entry and exit lane IDs
+entry_exit_lanes =[1, 2, 3, 4, 6, 7, 9, 10, 12, 13, 14, 15]';
+
+%Distance is computed from these limit points that wrere found manually
+entry_exit_lane_points = [73.4, -70.3;
+78.1, -71.3;
+106.4, -51.2;
+107.1, -46.8;
+90.2, -22.9;
+85.3, -21.8;
+57.5, -42.3;
+57.1, -47.5;
+66.2, -66;
+103, -60;
+98.6, -27.7;
+59.9, -35];
+
+%Iterate on all timesteps of the trajectory 
+for ii = 1 : size(veh_traj, 1)
+    
+    lane_id = lane_ids(ii);
+    
+    %assign -1 value for vehicles in the non-relevant lanes
+    if  any(ismember(lane_id,[5,8,11,200]))
+        dist_round(ii) = -1;
+        
+        %Entry/Exit lanes
+    elseif any(ismember(lane_id, entry_exit_lanes))
+        ind = entry_exit_lanes==lane_id;
+        lane_point = entry_exit_lane_points(ind,:);
+        dist_round(ii) = (sum((veh_traj(ii,:) - lane_point).^2))^0.5;
+    end
+    
+end
+
+end
+
+
 %% Future short-term lateral intention is defined by intended the lane
 function [lat_int , lat_goal ]= find_lat_int(next_lane)
 
